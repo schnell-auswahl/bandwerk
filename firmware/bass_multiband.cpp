@@ -31,7 +31,14 @@
 #include "ui/settings.h"
 #include "ui/settings_store.h"
 #include "ui/ui_controller.h"
-#ifdef BM_DEV
+#include "version.h"
+// BM_REMOTE (default on, `make BM_REMOTE=0` strips it): USB serial link with
+// telemetry and remote commands, in the dev and the release build
+// (docs/PROTOCOL.md). BM_DEV adds the development extras on top of it.
+#if defined(BM_DEV) && !defined(BM_REMOTE)
+#error "BM_DEV needs BM_REMOTE (the dev extras use the USB serial link)"
+#endif
+#ifdef BM_REMOTE
 #include "dev_link.h"           // devkit/firmware
 #include "ui/dev_commands.h"
 #endif
@@ -236,11 +243,14 @@ void EnterBootloader() {
     hw.DelayMs(100);
   }
 #ifdef BOOT_APP
-  // Daisy bootloader installed: stay in its DFU mode until a new program is flashed
-  // (power-cycling gets back to the program).
+  // APP_TYPE=BOOT_SRAM (release and dev): the Daisy bootloader is installed. Stay
+  // in its DFU mode until a new program is flashed (power-cycling gets back to the
+  // program).
   System::ResetToBootloader(System::BootloaderMode::DAISY_INFINITE_TIMEOUT);
 #else
-  System::ResetToBootloader();  // STM32 ROM bootloader (internal flash layout)
+  // APP_TYPE=BOOT_NONE (emergency layout): STM32 ROM bootloader. (DAISY_* would
+  // return without doing anything, since no Daisy bootloader is running.)
+  System::ResetToBootloader(System::BootloaderMode::STM);
 #endif
 }
 
@@ -271,11 +281,30 @@ void ReadInputs(bm::UiInputs* in) {
   in->now_ms = System::GetNow();
 }
 
-#ifdef BM_DEV
+#ifdef BM_REMOTE
 int Permille(float v) { return static_cast<int>(v * 1000.0f + 0.5f); }
 
 // Non-blocking USB link to the host (log out, commands in): devkit/firmware.
+// Never waits for the host, so it is safe on stage without a computer.
 devkit::DevLink dev_log;
+
+// What `hello` reports (docs/PROTOCOL.md).
+bm::BuildInfo MakeBuildInfo() {
+  bm::BuildInfo b;
+  b.fw = BM_FW_VERSION;
+  b.proto = BM_PROTO_VERSION;
+#ifdef BM_DEV
+  b.build = "dev";
+#else
+  b.build = "release";
+#endif
+#ifdef BOOT_APP
+  b.app = "boot_sram";
+#else
+  b.app = "boot_none";
+#endif
+  return b;
+}
 
 // Machine-readable state line for the live view (tools/live_server.py).
 // pg/bd/lm/dt = page, band, loop mode, drive type (enum values), oc/dr/by =
@@ -303,6 +332,21 @@ devkit::DevLink dev_log;
       Permille((p).oct_level_up), Permille((p).oct_sub_tone),             \
       Permille((p).drive_gain), Permille((p).drive_band_mix),             \
       Permille((p).drive_level), Permille((p).drive_tone)
+
+// Once per second: sample rate, block size, CPU load of the audio callback
+// (average and peak in 0.1 %), main loop passes in the last second, loop
+// latency (0.01 samples), automatic loop measurement tries and last result.
+#define BM_SYS_FMT \
+  "[SYS] sr=%d block=%d cpu avg=%d.%d%% max=%d.%d%% loops=%d lat=%d ltry=%d lres=%d\r\n"
+#define BM_SYS_ARGS(loops)                                                   \
+  static_cast<int>(hw.AudioSampleRate()), static_cast<int>(hw.AudioBlockSize()), \
+      static_cast<int>(cpu_load.GetAvgCpuLoad() * 100.0f),                   \
+      static_cast<int>(cpu_load.GetAvgCpuLoad() * 1000.0f) % 10,             \
+      static_cast<int>(cpu_load.GetMaxCpuLoad() * 100.0f),                   \
+      static_cast<int>(cpu_load.GetMaxCpuLoad() * 1000.0f) % 10,             \
+      static_cast<int>(loops),                                               \
+      static_cast<int>(ui.params().loop_latency * 100.0f + 0.5f), loop_cal.tries(), \
+      loop_cal.last_result()
 
 // Level in tenths of a dB (-1200 = silence).
 int DbX10(float peak) {
@@ -342,6 +386,7 @@ void PrintLiveFrame(const bm::UiInputs& in) {
       static_cast<int>(m.loop_delay * 100.0f + 0.5f), static_cast<int>(g_shared.loop_mode));
 }
 
+#ifdef BM_DEV
 // Two human readable lines plus the state line whenever the UI state changed.
 bool PrintUiState() {
   const bm::Params& p = ui.params();
@@ -360,7 +405,14 @@ bool PrintUiState() {
       bm::SlotName(ui.page(), 3), Permille(ui.StoredSlotValue(3)),
       BM_STATE_ARGS(p));
 }
-#endif
+#else
+// Release: only the machine-readable state line.
+bool PrintUiState() {
+  const bm::Params& p = ui.params();
+  return dev_log.Print(BM_STATE_FMT, BM_STATE_ARGS(p));
+}
+#endif  // BM_DEV
+#endif  // BM_REMOTE
 
 }  // namespace
 
@@ -380,8 +432,8 @@ int main() {
   hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
   hw.SetAudioBlockSize(kBlockSize);
 
-#ifdef BM_DEV
-  dev_log.Init();  // non-blocking: works with or without a terminal
+#ifdef BM_REMOTE
+  dev_log.Init();  // non-blocking: works with or without a host
 #endif
 
   led_1.Init(hw.seed.GetPin(Hothouse::LED_1), false, hw.AudioCallbackRate());
@@ -415,30 +467,34 @@ int main() {
   bool probe_waiting = false;  // automatic measurement: chain switched to Bridge, probe not started yet
   uint32_t probe_due_ms = 0;
 
-#ifdef BM_DEV
+#ifdef BM_REMOTE
+  const bm::BuildInfo build_info = MakeBuildInfo();
   uint32_t last_report = System::GetNow();
   uint32_t last_ui_print = 0;
   uint32_t printed_revision = 0;
   uint32_t loop_count = 0;  // main loop passes since the last [SYS] line
   uint32_t last_live = 0;
+#endif
+#ifdef BM_DEV
   bool boot_reported = false;
 #endif
 
   while (true) {
     hw.DelayMs(1);
 
-#ifdef BM_DEV
-    // Remote commands from the host (tools/pedal_ctl.py). Only taken when the
-    // reply can be sent right away; handled before the UI update so the new
-    // values are in effect within this pass.
+#ifdef BM_REMOTE
+    // Remote commands from the host (web studio, tools/pedal_ctl.py). Only taken
+    // when the reply can be sent right away; handled before the UI update so the
+    // new values are in effect within this pass.
     {
       char cmd[devkit::DevLink::kLineSize];
       char reply[96];
       if (dev_log.CanPrint() && dev_log.PopLine(cmd, sizeof cmd)) {
-        // Commands that need the hardware (storage, reset); the rest is hardware-free.
+#ifdef BM_DEV
+        // Dev-only commands that need the hardware (storage, reset, loop probe).
         if (devkit::Is(cmd, "reboot")) {
           dev_log.Print("[CMD] ok reboot\r\n");
-          dev_log.Pump();
+          dev_log.Flush(100);  // bounded: gives up after 100 ms if nobody reads
           hw.DelayMs(50);
           NVIC_SystemReset();  // plain restart: the bootloader starts the program again
         } else if (devkit::Is(cmd, "looptest") && loop_cal.measuring()) {
@@ -454,21 +510,26 @@ int main() {
                         static_cast<int>(r.gain_db * 10.0f), static_cast<int>(r.coef * 1000.0f),
                         r.inverted ? 1 : 0, static_cast<int>(r.return_rms_db * 10.0f),
                         static_cast<int>(bm::kLoopRoundTripSamples * 100.0f));
-        } else if (devkit::Is(cmd, "dfu")) {
-          // Same as holding FS1 + FS2: lets the host flash without touching the pedal.
-          dev_log.Print("[CMD] ok dfu\r\n");
-          dev_log.Pump();
-          hw.DelayMs(50);
-          EnterBootloader();
         } else if (devkit::Is(cmd, "save")) {
           SaveSettings(bm::PackSettings(ui.params()));
           dev_log.Print("[CMD] ok save\r\n");
         } else if (devkit::Is(cmd, "wipe")) {
           const bool ok = settings_store.EraseAll();  // running state is unchanged
           dev_log.Print("[CMD] %s wipe\r\n", ok ? "ok" : "err");
-        } else {
-          bm::ApplyDevCommand(ui, cmd, reply, sizeof reply);
+        } else
+#endif
+        {
+          bm::RemoteAction action = bm::RemoteAction::kNone;
+          bm::ApplyDevCommand(ui, cmd, reply, sizeof reply, build_info, &action);
           dev_log.Print("[CMD] %s\r\n", reply);
+          if (action == bm::RemoteAction::kEnterBootloader) {
+            // Same as holding FS1 + FS2: lets the host flash without touching the
+            // pedal. Reply first: hand it to the USB driver (bounded wait), then
+            // give the host 50 ms to read it before the USB port disappears.
+            dev_log.Flush(100);
+            hw.DelayMs(50);
+            EnterBootloader();
+          }
         }
       }
     }
@@ -565,20 +626,23 @@ int main() {
     hw.CheckResetToBootloader();
 #endif
 
-#ifdef BM_DEV
+#ifdef BM_REMOTE
+    // Telemetry. Every print below is skipped (not queued, not even formatted)
+    // while the USB driver still holds the previous message, i.e. when no host
+    // reads: then all of this costs a few dozen cycles per pass.
     const uint32_t now = System::GetNow();
-
-    // UI state: print on change, at most 10 lines per second.
     ++loop_count;
     dev_log.Pump();
+#ifdef BM_DEV
     if (!boot_reported && dev_log.CanPrint()) {
       boot_reported = dev_log.Print("[BOOT] settings: %s\r\n",
                                     g_boot_loaded ? "loaded" : "defaults (nothing valid saved)");
     }
+#endif
 
     // UI state: print on change, at most 10 times per second. The revision
     // is only marked as printed when the message was really handed over.
-    if (ui.revision() != printed_revision && now - last_ui_print >= 100) {
+    if (ui.revision() != printed_revision && now - last_ui_print >= 100 && dev_log.CanPrint()) {
       if (PrintUiState()) {
         printed_revision = ui.revision();
         last_ui_print = now;
@@ -592,7 +656,8 @@ int main() {
       PrintLiveFrame(in);
     }
 
-    if (now - last_report >= 1000) {
+    if (now - last_report >= 1000 && dev_log.CanPrint()) {
+#ifdef BM_DEV
       // Input peaks in dBFS, raw knobs in permille, raw toggles
       // (0 = up, 1 = middle, 2 = down), raw footswitches (1 = pressed).
       auto peak_db = [](float p) {
@@ -601,27 +666,26 @@ int main() {
       const int in_l = peak_db(g_in_peak[0]);
       const int in_r = peak_db(g_in_peak[1]);
       // Integer output only: printf float support is not linked in.
-      if (dev_log.Print(
-              "[SYS] sr=%d block=%d cpu avg=%d.%d%% max=%d.%d%% loops=%d lat=%d ltry=%d lres=%d\r\n"
-              "[RAW] in L=%d R=%d dBFS | K %d %d %d %d %d %d | S %d %d %d | F %d %d\r\n"
-              BM_STATE_FMT,
-              static_cast<int>(hw.AudioSampleRate()),
-              static_cast<int>(hw.AudioBlockSize()),
-              static_cast<int>(cpu_load.GetAvgCpuLoad() * 100.0f),
-              static_cast<int>(cpu_load.GetAvgCpuLoad() * 1000.0f) % 10,
-              static_cast<int>(cpu_load.GetMaxCpuLoad() * 100.0f),
-              static_cast<int>(cpu_load.GetMaxCpuLoad() * 1000.0f) % 10,
-              static_cast<int>(loop_count),
-              static_cast<int>(ui.params().loop_latency * 100.0f + 0.5f), loop_cal.tries(),
-              loop_cal.last_result(), in_l, in_r, Permille(in.knob[0]), Permille(in.knob[1]),
-              Permille(in.knob[2]), Permille(in.knob[3]), Permille(in.knob[4]),
-              Permille(in.knob[5]), static_cast<int>(in.toggle[0]),
-              static_cast<int>(in.toggle[1]), static_cast<int>(in.toggle[2]),
-              in.fs[0] ? 1 : 0, in.fs[1] ? 1 : 0, BM_STATE_ARGS(ui.params()))) {
+      const bool printed = dev_log.Print(
+          BM_SYS_FMT
+          "[RAW] in L=%d R=%d dBFS | K %d %d %d %d %d %d | S %d %d %d | F %d %d\r\n"
+          BM_STATE_FMT,
+          BM_SYS_ARGS(loop_count), in_l, in_r, Permille(in.knob[0]), Permille(in.knob[1]),
+          Permille(in.knob[2]), Permille(in.knob[3]), Permille(in.knob[4]),
+          Permille(in.knob[5]), static_cast<int>(in.toggle[0]),
+          static_cast<int>(in.toggle[1]), static_cast<int>(in.toggle[2]),
+          in.fs[0] ? 1 : 0, in.fs[1] ? 1 : 0, BM_STATE_ARGS(ui.params()));
+#else
+      const bool printed =
+          dev_log.Print(BM_SYS_FMT BM_STATE_FMT, BM_SYS_ARGS(loop_count), BM_STATE_ARGS(ui.params()));
+#endif
+      if (printed) {
         last_report = now;
         loop_count = 0;
+#ifdef BM_DEV
         g_in_peak[0] = 0.0f;
         g_in_peak[1] = 0.0f;
+#endif
         cpu_load.Reset();
       }
     }
