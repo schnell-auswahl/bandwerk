@@ -38,17 +38,25 @@ jobs:
           make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
           make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
 
-      - name: Release build (BM_DEV=0, BOOT_NONE)
+      - name: Release build (BM_DEV=0, BM_REMOTE=1, BOOT_SRAM)
         run: |
           make -C firmware release
           arm-none-eabi-size firmware/build/bass_multiband.elf
           mkdir -p dist
           cp firmware/build/bass_multiband.bin dist/bass_multiband.bin
 
-      - name: Dev build (BM_DEV=1, BOOT_SRAM)
+      - name: Dev build (BM_DEV=1, BM_REMOTE=1, BOOT_SRAM)
         run: |
           make -C firmware clean
           make -C firmware
+          arm-none-eabi-size firmware/build/bass_multiband.elf
+
+      # Keeps the build without the USB link compiling, in the emergency layout
+      # (internal flash): the link fails if it no longer fits into 128 KB.
+      - name: Build without remote link (BM_DEV=0, BM_REMOTE=0, BOOT_NONE)
+        run: |
+          make -C firmware clean
+          make -C firmware BM_DEV=0 BM_REMOTE=0 APP_TYPE=BOOT_NONE
           arm-none-eabi-size firmware/build/bass_multiband.elf
 
       - name: Upload the release firmware
