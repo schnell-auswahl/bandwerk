@@ -16,6 +16,9 @@ DIY DSP pedal platform (Electro-Smith Daisy Seed, STM32H750).
   feeds part of the low band into the drive.
 - **Band mix** between the low and the high band, and a **master** with a soft clipper.
 - Settings are saved to the QSPI flash chip.
+- **USB link** (optional): with a USB cable, a web page or the included tools show the levels along the chain
+  and control the pedal ([protocol](docs/PROTOCOL.md)). The pedal never waits for the computer, so it works the
+  same with no cable, with USB power only, or with a cable to a computer where nothing is running.
 
 ## Controls
 
@@ -32,7 +35,8 @@ DIY DSP pedal platform (Electro-Smith Daisy Seed, STM32H750).
   inverted phase), S3 the drive type (overdrive / distortion / fuzz).
 - FS1 toggles the octaver, FS2 toggles the drive. Tap both together for a global bypass.
 - K2, K4, K5 and K6 use soft takeover (LED 1 blinks until the knob reaches the stored value).
-- Hold FS1 + FS2 for about 2 s to enter the bootloader for flashing.
+- Hold FS1 + FS2 for about 2 s to enter the bootloader for flashing (the LEDs alternate). A power cycle returns
+  to the program.
 
 ## Wiring
 
@@ -48,15 +52,28 @@ git clone --recursive https://github.com/schnell-auswahl/hothouse-bass-multiband
 cd hothouse-bass-multiband
 make -C lib/HothouseExamples/libDaisy
 make -C lib/HothouseExamples/DaisySP
-make -C firmware release        # build/bass_multiband.bin, internal flash, one-step DFU
+make -C firmware release        # firmware/build/bass_multiband.bin
 ```
 
-Put the pedal into the STM32 bootloader (hold FS1 + FS2 for about 2 s, or BOOT + RESET on the Daisy) and run
-`tools/flash.sh release` (or `make -C firmware program-dfu` after the build).
+The firmware uses the Daisy bootloader layout (`BOOT_SRAM`): the
+[Daisy bootloader](lib/HothouseExamples/libDaisy/core) (v6.2, MIT, from libDaisy) sits in the
+Daisy Seed's internal flash, the program in the QSPI flash chip at `0x90040000`. At every power-up the
+bootloader waits 2 s for a firmware update, then starts the program, so a broken update can always be fixed
+by power-cycling the pedal.
+
+**First installation** (the pedal runs another firmware): put it into the STM32 bootloader (hold FS1 + FS2
+for about 2 s if the old firmware supports it, or press BOOT + RESET on the Daisy Seed), then
+
+```sh
+tools/flash.sh setup release    # installs the Daisy bootloader, then the program
+```
+
+**Updates:** hold FS1 + FS2 for about 2 s (or power-cycle the pedal and start within 2 s), then
+`tools/flash.sh app release`. Without the script: `make -C firmware release program-dfu`.
 
 Host-side unit tests (no hardware needed): `make -C firmware test`.
-Everything else (dev build, bootloader layout, live view, measurement rig) is in
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Everything else (dev build, build options, live view, measurement rig) is in
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md); the USB serial protocol is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 ## Website
 
@@ -66,7 +83,8 @@ Coming soon: _link to the project page_.
 
 Copyright (C) 2026 schnell-auswahl. Licensed under the
 [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later). The Hothouse hardware wrapper
-(`hothouse.h`, from the HothouseExamples repository) is GPL-3.0 as well.
+(`hothouse.h`, from the HothouseExamples repository) is GPL-3.0 as well. The Daisy bootloader binary that is
+installed alongside the firmware is part of libDaisy (MIT license, Copyright (c) 2019 Electrosmith).
 
 ## Credits
 

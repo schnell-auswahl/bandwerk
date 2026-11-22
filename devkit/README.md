@@ -8,7 +8,8 @@ project plugs in. Copy or reference this folder from any other Hothouse project.
 
 | Part | What it does |
 |---|---|
-| `firmware/dev_link.h` | Non-blocking USB serial link for development builds: `Print()` never blocks (drops when the host is not reading), `PopLine()` returns commands sent by the host. Replaces `hw.seed.PrintLine`, which freezes the main loop once the terminal is closed. |
+| `firmware/dev_link.h` | Non-blocking USB serial link (safe in release firmware): `Print()` never blocks (drops when the host is not reading), `PopLine()` returns commands sent by the host. Replaces `hw.seed.PrintLine`, which freezes the main loop once the terminal is closed. |
+| `firmware/dev_link_core.h` | Hardware-free core of `DevLink` (transmit queue, line assembler), unit-tested on the host. |
 | `firmware/line_commands.h` | Hardware-free helpers to split and parse a text command (`Tokenize`, `ToInt`, `Reply`). |
 | `cpp_tests/` | Host-side unit test runner (plain g++, no dependencies): `test_framework.h` (`TEST`, `CHECK`, `CHECK_NEAR`), `test_main.cpp`, `Makefile.inc`. |
 | `python/devkit/bridge.py` | The one program that reads the device's serial port. Serves your browser page, parsed telemetry (SSE), raw lines, and a `/cmd` endpoint that sends a line to the device and returns its reply. |
@@ -24,7 +25,7 @@ interface's name to pick another one.
 
 ## Using it in a new project
 
-1. **Firmware (development build only).** Add `-I<path>/devkit/firmware`, then
+1. **Firmware.** Add `-I<path>/devkit/firmware`, then
 
    ```cpp
    #include "dev_link.h"
@@ -37,7 +38,8 @@ interface's name to pick another one.
    }
    link.Print("[S] ...\r\n");                  // telemetry, any format you like
    ```
-   Keep the audio callback free of this. Guard it with a macro (`BM_DEV`) so the release build does not contain it.
+   Keep the audio callback free of this. It never waits for the host, so it can stay in release firmware; guard it with a macro
+   (this project: `BM_REMOTE`) if you want a build without it.
 2. **Bridge.** Write a small wrapper next to your tools:
 
    ```python
