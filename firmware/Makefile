@@ -50,7 +50,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 .PHONY: test
 test:
 	$(MAKE) -C tests run
-	@if command -v node >/dev/null 2>&1; then node tests/js/live_view_test.js; else echo "node not found: skipping the live view test"; fi
+	@if command -v node >/dev/null 2>&1; then node --test '../site/tests/*.test.mjs'; else echo "node not found: skipping the studio tests (site/tests)"; fi
 
 # Release build for users: no dev functions, internal flash only (BOOT_NONE), so it can be flashed
 # in one step through the STM32 ROM bootloader (`make program-dfu`). Switching APP_TYPE needs a

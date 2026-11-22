@@ -30,6 +30,8 @@ def handle(line):
         return "err empty"
     if w[0] == "ping":
         return "ok ping"
+    if w[0] == "hello":
+        return "ok hello fw=0.1.0-beta proto=1 build=dev app=boot_sram"
     if w[0] == "defaults":
         pm[:] = DEFAULTS
         state.update(oc=0, dr=0)
