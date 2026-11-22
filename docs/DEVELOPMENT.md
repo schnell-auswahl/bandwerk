@@ -8,7 +8,7 @@ measurement rig). For a short overview see the [README](../README.md); the USB s
 
 | Folder | Content |
 |---|---|
-| `firmware/` | The pedal firmware: `bass_multiband.cpp` (the only file that touches hardware), `dsp/` (hardware-free DSP classes), `ui/` (hardware-free UI logic), `tests/` (host unit tests, `tests/js` for the live view), `Makefile` |
+| `firmware/` | The pedal firmware: `bass_multiband.cpp` (the only file that touches hardware), `dsp/` (hardware-free DSP classes), `ui/` (hardware-free UI logic), `tests/` (host unit tests), `Makefile` |
 | `devkit/` | Generic development tools for Daisy / Hothouse projects (non-blocking USB link, test runner, serial bridge, audio rig). See [devkit/README.md](../devkit/README.md) |
 | `tools/` | Project-specific tooling on top of the devkit: flashing script, telemetry parser, live view server, parameter names, guided measurements |
 | `site/` | Project web page (also hosts the live view) |
@@ -122,9 +122,9 @@ make -C firmware test
 ```
 
 This builds and runs the C++ unit tests with plain `g++` (`firmware/tests/test_*.cpp`; every `test_*.cpp` is found automatically,
-the runner and `TEST`/`CHECK` macros come from `devkit/cpp_tests`) and then the live view test with Node.js
-(`firmware/tests/js/live_view_test.js`, which runs the page script of `site/index.html` against a stubbed DOM; skipped if
-Node.js is missing). The tests cover the DSP blocks (crossover flatness, compressor curve, octaver tracking, drive,
+the runner and `TEST`/`CHECK` macros come from `devkit/cpp_tests`) and then the web tests with Node.js
+(`node --test` over `site/tests/*.test.mjs`: studio mappings, telemetry parser, demo pedal, presets; skipped if Node.js is
+missing). The web installer has its own tests: `node --test "site/tests/flasher/*.test.mjs"`. The tests cover the DSP blocks (crossover flatness, compressor curve, octaver tracking, drive,
 oversampler aliasing, loop delay and probe) and the UI logic (soft takeover, footswitch state machine, toggle
 settling, LEDs, settings and the wear-levelled store). The test binary is always rebuilt because
 macOS's make 3.81 only compares modification times with 1 s resolution.
@@ -172,7 +172,7 @@ A serial port can be read by one program at a time, so `tools/live_server.py` (a
 python3 tools/live_server.py              # then open http://localhost:8765
 ```
 
-It serves `site/index.html` (the live view is a section of that page), parsed telemetry (`/events`, server-sent events), raw lines
+It serves the `site/` folder (default page `studio.html`, the interactive studio on its own; see `docs/STUDIO.md`), parsed telemetry (`/events`, server-sent events), raw lines
 (`/raw`), a state snapshot (`/state`) and a command endpoint (`POST /cmd`). The live view shows the signal chain as an interactive
 diagram: every block shows its settings and levels, the pedal's knobs and switches are mirrored, and with the "control" box ticked
 you can operate the pedal from the browser (the page sends the same commands as the remote commands below).
@@ -228,7 +228,7 @@ web pages must match. When you change the format, change all of them.
 
 The `[L]` and `[M]` lines together are about 330 characters; the DevLink buffer is 448. Levels come from `BassChain::TakeMeters()` (peaks per 50 ms window).
 Adding a measuring point means: a field in `ChainMeters`, a `PeakHold` in `Process`, the `[M]` print, `M_LEVELS` in
-`tools/bm_telemetry.py`, `tools/fake_pedal.py` and the page. The page's mappings (`LV.*`) must match `firmware/dsp/mapping.h`; the tests in `live_view_test.js` check that.
+`tools/bm_telemetry.py`, `tools/fake_pedal.py` and the studio (`site/js/studio/`). The studio's mappings (`site/js/studio/mapping.js`) must match `firmware/dsp/mapping.h`; `site/tests/mapping.test.mjs` checks that.
 
 ## Measurement rig
 

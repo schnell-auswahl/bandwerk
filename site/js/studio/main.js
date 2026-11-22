@@ -149,7 +149,10 @@ class Studio extends EventTarget {
   }
   bridgeBase() {
     if (this.opts.bridgeUrl) return this.opts.bridgeUrl.replace(/\/$/, '');
-    return typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? location.origin : null;
+    // The Python bridge only ever runs on this computer: probe it only when the page itself is served locally,
+    // so the public site (GitHub Pages) does not request a /state that cannot exist.
+    if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return null;
+    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? location.origin : null;
   }
   async useTransport(kind, ready = null) {
     const old = this.transport;

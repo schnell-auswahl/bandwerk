@@ -758,3 +758,7 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
   .nav-toggle { padding: 0 var(--sp-3); min-width: 44px; justify-content: center; }
   .pages-table small { display: none; }
 }
+
+/* The landing page explains the three install steps itself (big numbers above the installer),
+   so the installer's own compact step strip is hidden here. install.html keeps it. */
+#flasher-root .flasher .fl-steps { display: none; }

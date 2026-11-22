@@ -37,6 +37,14 @@ def _db_span(span):            # +-span/2 dB around 12 o'clock
     return lambda db: _clamp(db / span + 0.5)
 
 
+def _loop_fine(ms):            # -1..+1 ms around the measured latency (inverse of LoopFineMs in mapping.h)
+    dead = 0.02
+    ms = max(-1.0, min(1.0, ms))
+    if ms == 0.0:
+        return 0.5
+    return _clamp(0.5 + math.copysign(dead, ms) + ms * (0.5 - dead))
+
+
 def _band(first, lo_ratio, hi_ratio, lo_rel, hi_rel):
     return {
         "threshold": (first, _lin(-40, -6), "dB"),
@@ -55,7 +63,7 @@ PARAMS.update({
     "loop.send": (10, _db_span(24), "dB"),
     "loop.mix": (11, _percent, "%"),
     "loop.return": (12, _db_span(24), "dB"),
-    "loop.trim": (13, lambda ms: _clamp(math.sqrt(max(ms, 0.0) / 5.0)), "ms"),
+    "loop.trim": (13, _loop_fine, "ms"),
     "oct.level_down": (14, lambda p: _clamp(p / 200.0), "%"),
     "oct.drywet": (15, _clamp, "0..1"),
     "oct.level_up": (16, lambda p: _clamp(p / 200.0), "%"),

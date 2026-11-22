@@ -63,7 +63,7 @@ interface's name to pick another one.
 | File | Role |
 |---|---|
 | `tools/bm_telemetry.py` | its telemetry format (`[L]`, `[S]`, `[SYS]`) |
-| `tools/live_server.py` | 6-line wrapper around `devkit.bridge` |
+| `tools/live_server.py` | small wrapper around `devkit.bridge` that serves `site/` |
 | `tools/rig.py` | wrapper around `devkit.audio` that sets the capture folder |
 | `tools/bm_params.py`, `pedal_ctl.py` | parameter names and real units, command line |
 | `firmware/ui/dev_commands.h` | its command set on the firmware side |
