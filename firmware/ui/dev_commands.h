@@ -1,8 +1,9 @@
-// Remote commands for development builds: the host (tools/pedal_ctl.py) sets
-// parameters and states so that measurements do not depend on knob positions.
-// Hardware-free; the firmware feeds it the lines received over USB.
+// Remote commands (dev and release builds, BM_REMOTE): the host (web studio,
+// tools/pedal_ctl.py) sets parameters and states. Hardware-free; the firmware
+// feeds it the lines received over USB. Full reference: docs/PROTOCOL.md.
 //
 //   ping
+//   hello                         firmware/protocol version, build, memory layout
 //   set <name|index> <permille>   stored parameter 0..1000 (names: see ParamName)
 //   oct on|off      drv on|off      byp on|off
 //   page comp|loop|oct|drive
@@ -10,8 +11,12 @@
 //   lmode bridge|loop|inv         loop mode (as switch S2)
 //   band high|both|low            compressor band edited on page COMP (as switch S1)
 //   defaults                      factory defaults, octave/drive off
+//   dfu                           reply, then the firmware enters the bootloader
+//                                 (returned as RemoteAction::kEnterBootloader)
 //
 // The reply is "ok ..." or "err ..." and is sent back as "[CMD] <reply>".
+// Dev-only commands that need the hardware (reboot, save, wipe, looptest) are
+// handled in bass_multiband.cpp before this.
 #pragma once
 
 #include <cstdio>
@@ -20,8 +25,20 @@
 #include "line_commands.h"  // devkit
 #include "ui/pages.h"
 #include "ui/ui_controller.h"
+#include "version.h"
 
 namespace bm {
+
+// What the `hello` reply reports. The firmware fills it from its build flags.
+struct BuildInfo {
+  const char* fw = BM_FW_VERSION;
+  int proto = BM_PROTO_VERSION;
+  const char* build = "dev";      // "dev" | "release"
+  const char* app = "boot_sram";  // "boot_sram" | "boot_none" (APP_TYPE)
+};
+
+// Something the firmware has to do after the reply has been sent.
+enum class RemoteAction { kNone, kEnterBootloader };
 
 inline bool ParseOnOff(const char* s, bool* on) {
   if (devkit::Is(s, "on") || devkit::Is(s, "1")) { *on = true; return true; }
@@ -30,14 +47,31 @@ inline bool ParseOnOff(const char* s, bool* on) {
 }
 
 // `line` is modified. Returns true if the command was understood and applied.
-inline bool ApplyDevCommand(UiController& ui, char* line, char* reply, size_t cap) {
+// `action` (optional) receives what the firmware has to do after replying.
+inline bool ApplyDevCommand(UiController& ui, char* line, char* reply, size_t cap,
+                            const BuildInfo& info = BuildInfo(), RemoteAction* action = nullptr) {
   using devkit::Is;
   using devkit::Reply;
+  if (action != nullptr) *action = RemoteAction::kNone;
   const devkit::Tokens t = devkit::Tokenize(line);
   if (t.n == 0) { Reply(reply, cap, "err", "empty"); return false; }
   bool on = false;
 
   if (Is(t.t[0], "ping")) { Reply(reply, cap, "ok", "ping"); return true; }
+
+  // Extra words after `hello` are ignored (room for a host version later).
+  if (Is(t.t[0], "hello")) {
+    std::snprintf(reply, cap, "ok hello fw=%s proto=%d build=%s app=%s", info.fw, info.proto,
+                  info.build, info.app);
+    return true;
+  }
+
+  if (Is(t.t[0], "dfu")) {
+    if (t.n != 1) { Reply(reply, cap, "err", "usage: dfu"); return false; }
+    Reply(reply, cap, "ok", "dfu");
+    if (action != nullptr) *action = RemoteAction::kEnterBootloader;
+    return true;
+  }
 
   if (Is(t.t[0], "defaults")) {
     ui.RemoteDefaults();

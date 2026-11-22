@@ -45,27 +45,36 @@ jobs:
           make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
           make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
 
-      - name: Release build (BM_DEV=0, BOOT_NONE)
+      - name: Release build (BM_DEV=0, BM_REMOTE=1, BOOT_SRAM)
         run: make -C firmware release
 
+      # The web installer reads site/firmware/manifest.json (keys fixed by the
+      # site's flasher): the program for the QSPI chip and the Daisy bootloader
+      # for the internal flash. The version comes from firmware/version.h.
       - name: Publish the firmware with a manifest
+        env:
+          COMMIT: ${{ github.sha }}
         run: |
-          mkdir -p site/firmware
-          cp firmware/build/bass_multiband.bin site/firmware/bass_multiband.bin
-          version="$(git describe --tags --always)"
-          sha256="$(sha256sum site/firmware/bass_multiband.bin | cut -d' ' -f1)"
-          size="$(stat -c %s site/firmware/bass_multiband.bin)"
-          cat > site/firmware/manifest.json <<MANIFEST
-          {
-            "name": "bass_multiband",
-            "version": "${version}",
-            "file": "bass_multiband.bin",
-            "sha256": "${sha256}",
-            "size": ${size},
-            "commit": "${GITHUB_SHA}"
-          }
+          set -eu
+          out=site/firmware
+          app=firmware/build/bass_multiband.bin
+          boot=lib/HothouseExamples/libDaisy/core/dsy_bootloader_v6_2-intdfu-2000ms.bin
+          mkdir -p "$out"
+          cp "$app" "$out/bass_multiband.bin"
+          cp "$boot" "$out/$(basename "$boot")"
+          cp lib/HothouseExamples/libDaisy/LICENSE "$out/LICENSE-libDaisy.txt"  # MIT notice for the bootloader
+          version="$(sed -n 's/^#define BM_FW_VERSION "\(.*\)"$/\1/p' firmware/version.h)"
+          [ -n "$version" ] || { echo "BM_FW_VERSION not found in firmware/version.h"; exit 1; }
+          boot_version="$(basename "$boot" | sed -n 's/^dsy_bootloader_v\([0-9]*\)_\([0-9]*\)-.*/\1.\2/p')"
+          if command -v sha256sum >/dev/null; then sha() { sha256sum "$1" | cut -d' ' -f1; }
+          else sha() { shasum -a 256 "$1" | cut -d' ' -f1; }; fi
+          size() { wc -c < "$1" | tr -d ' '; }
+          cat > "$out/manifest.json" <<MANIFEST
+          { "name": "Hothouse Bass Multiband", "version": "${version}", "commit": "${COMMIT}",
+            "app":        { "file": "bass_multiband.bin", "size": $(size "$out/bass_multiband.bin"), "sha256": "$(sha "$out/bass_multiband.bin")", "address": "0x90040000", "type": "boot_sram" },
+            "bootloader": { "file": "$(basename "$boot")", "size": $(size "$boot"), "sha256": "$(sha "$boot")", "address": "0x08000000", "version": "${boot_version}", "license": "MIT (libDaisy)" } }
           MANIFEST
-          cat site/firmware/manifest.json
+          python3 -m json.tool "$out/manifest.json"
 
       - uses: actions/configure-pages@v5
 

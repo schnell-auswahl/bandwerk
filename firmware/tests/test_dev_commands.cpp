@@ -230,3 +230,74 @@ TEST(band_change_makes_the_comp_knobs_pick_up_again) {
   CHECK(Starts(b.Cmd("band low"), "ok"));
   CHECK((b.ui.caught_mask() & 1) == 0);  // now edits the low band: pick up again
 }
+
+TEST(hello_reports_version_build_and_layout_exactly_as_in_the_protocol) {
+  Bench b;
+  BuildInfo release;
+  release.build = "release";
+  release.app = "boot_sram";
+  char line[96] = "hello";
+  char reply[96];
+  CHECK(ApplyDevCommand(b.ui, line, reply, sizeof reply, release));
+  CHECK(std::strcmp(reply, "ok hello fw=" BM_FW_VERSION " proto=1 build=release app=boot_sram") == 0);
+  CHECK(std::strcmp(BM_FW_VERSION, "0.1.0-beta") == 0);
+  CHECK(BM_PROTO_VERSION == 1);
+
+  BuildInfo emergency;
+  emergency.build = "release";
+  emergency.app = "boot_none";
+  std::snprintf(line, sizeof line, "hello studio/1");  // extra words are ignored
+  CHECK(ApplyDevCommand(b.ui, line, reply, sizeof reply, emergency));
+  CHECK(std::strcmp(reply, "ok hello fw=0.1.0-beta proto=1 build=release app=boot_none") == 0);
+
+  // Default BuildInfo = dev build in the Daisy bootloader layout.
+  CHECK(std::strcmp(b.Cmd("hello"), "ok hello fw=0.1.0-beta proto=1 build=dev app=boot_sram") == 0);
+}
+
+TEST(hello_changes_nothing) {
+  Bench b;
+  b.Run(50);
+  const uint32_t r0 = b.ui.revision();
+  b.Cmd("hello");
+  CHECK(b.ui.revision() == r0);
+}
+
+TEST(dfu_replies_first_and_asks_the_firmware_for_the_bootloader) {
+  Bench b;
+  char line[96] = "dfu";
+  char reply[96];
+  RemoteAction action = RemoteAction::kNone;
+  CHECK(ApplyDevCommand(b.ui, line, reply, sizeof reply, BuildInfo(), &action));
+  CHECK(std::strcmp(reply, "ok dfu") == 0);
+  CHECK(action == RemoteAction::kEnterBootloader);
+
+  std::snprintf(line, sizeof line, "dfu now");
+  CHECK(!ApplyDevCommand(b.ui, line, reply, sizeof reply, BuildInfo(), &action));
+  CHECK(Starts(reply, "err"));
+  CHECK(action == RemoteAction::kNone);
+}
+
+TEST(only_dfu_requests_an_action) {
+  Bench b;
+  const char* cmds[] = {"ping", "hello", "set 0 500", "oct on", "byp off", "page loop", "dtype od",
+                        "lmode bridge", "band both", "defaults", "reboot", "save", "wipe",
+                        "looptest", "nonsense", ""};
+  for (const char* c : cmds) {
+    char line[96];
+    char reply[96];
+    std::snprintf(line, sizeof line, "%s", c);
+    RemoteAction action = RemoteAction::kEnterBootloader;
+    ApplyDevCommand(b.ui, line, reply, sizeof reply, BuildInfo(), &action);
+    CHECK(action == RemoteAction::kNone);
+  }
+}
+
+TEST(dev_only_commands_are_unknown_to_the_shared_module) {
+  // reboot/save/wipe/looptest are handled by the dev firmware before this module;
+  // a release build therefore answers them with an error.
+  Bench b;
+  CHECK(std::strcmp(b.Cmd("reboot"), "err unknown command") == 0);
+  CHECK(std::strcmp(b.Cmd("save"), "err unknown command") == 0);
+  CHECK(std::strcmp(b.Cmd("wipe"), "err unknown command") == 0);
+  CHECK(std::strcmp(b.Cmd("looptest"), "err unknown command") == 0);
+}

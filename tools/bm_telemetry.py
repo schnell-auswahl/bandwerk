@@ -1,8 +1,12 @@
-"""Telemetry of the BassMultiband firmware (dev build): turns one serial log line
-into a message for the browser live view. Format = firmware (bass_multiband.cpp,
-BM_STATE_FMT and PrintLiveFrame: [L], [M], [S], [SYS]), keep both in sync.
+"""Telemetry of the BassMultiband firmware (dev and release builds, serial protocol
+v1): turns one serial log line into a message for the browser live view.
+Format = firmware (bass_multiband.cpp, BM_STATE_FMT, BM_SYS_FMT and PrintLiveFrame:
+[L], [M], [S], [SYS]) and docs/PROTOCOL.md; keep all three in sync.
+Standard library only.
 """
 import re
+
+PROTOCOL_VERSION = 1
 
 
 # Levels along the chain in the [M] line (tenths of a dB), see PrintLiveFrame.
@@ -62,3 +66,35 @@ def parse_line(line):
     if line.startswith("[UI]") or line.startswith("[DFU]"):
         return {"t": "log", "line": line}
     return None
+
+
+def parse_cmd(line):
+    """A command reply "[CMD] ok <cmd> ..." / "[CMD] err <message>" as
+    {"ok": bool, "cmd": str or None, "text": str}, or None for other lines."""
+    if not line.startswith("[CMD] "):
+        return None
+    reply = line[6:].strip()
+    status, _, rest = reply.partition(" ")
+    if status == "ok":
+        return {"ok": True, "cmd": rest.split(" ", 1)[0] if rest else None, "text": rest}
+    if status == "err":
+        return {"ok": False, "cmd": None, "text": rest}
+    return None
+
+
+def parse_hello(reply):
+    """The reply to `hello` ("[CMD] ok hello fw=... proto=1 build=... app=..." or the
+    same without the "[CMD] " prefix) as a dict with the keys fw, proto (int),
+    build, app; None if it is not a hello reply. Unknown extra keys are kept."""
+    text = reply[6:] if reply.startswith("[CMD] ") else reply
+    words = text.split()
+    if words[:2] != ["ok", "hello"]:
+        return None
+    info = dict(w.split("=", 1) for w in words[2:] if "=" in w)
+    if not {"fw", "proto", "build", "app"} <= info.keys():
+        return None
+    try:
+        info["proto"] = int(info["proto"])
+    except ValueError:
+        return None
+    return info

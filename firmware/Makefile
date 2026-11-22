@@ -4,11 +4,22 @@ TARGET = bass_multiband
 # Uncomment to use LGPL (like ReverbSc, etc.)
 #USE_DAISYSP_LGPL=1
 
-# Dev build (default): enables the USB serial link (telemetry, remote commands) and CPU load output.
-# Release build for users: `make release` (BM_DEV=0, APP_TYPE=BOOT_NONE, see below).
+# Build switches (always `make clean` when you change one; `make release` does it for you):
+#   BM_REMOTE=1 (default): USB serial link with telemetry and remote commands, used by the
+#                web studio (docs/PROTOCOL.md). In the dev AND the release build.
+#                `make BM_REMOTE=0 BM_DEV=0` strips it (the effect only).
+#   BM_DEV=1 (default):    development extras on top of the remote link (raw/UI/boot/save
+#                lines, reboot/save/wipe/looptest commands). Release: `make release` (BM_DEV=0).
 BM_DEV ?= 1
+BM_REMOTE ?= 1
 ifeq ($(BM_DEV),1)
+ifneq ($(BM_REMOTE),1)
+$(error BM_DEV=1 needs BM_REMOTE=1 (the dev extras use the USB serial link))
+endif
 C_DEFS += -DBM_DEV
+endif
+ifeq ($(BM_REMOTE),1)
+C_DEFS += -DBM_REMOTE
 endif
 
 # Diagnostic build: ignore the inputs and output test tones instead
@@ -19,15 +30,15 @@ C_DEFS += -DBM_DIAG_TONE
 endif
 
 # Where the program lives (libDaisy core/Makefile understands these):
-#   BOOT_SRAM (default): the Daisy bootloader copies the program from the QSPI chip into
-#                        the fast RAM at power-up. Up to ~480 KB, QSPI stays free for saving.
+#   BOOT_SRAM (default, release and dev): the Daisy bootloader (internal flash, installed
+#                        once with `make program-boot`) copies the program from the QSPI chip
+#                        (0x90040000) into the fast RAM at power-up. Up to ~480 KB.
+#   BOOT_NONE:           internal flash only, 128 KB, no Daisy bootloader. Emergency layout
+#                        only: the release build with the remote link does not fit, use
+#                        `make BM_DEV=0 BM_REMOTE=0 APP_TYPE=BOOT_NONE`.
 #   BOOT_QSPI:           runs in place from the QSPI chip (not used: the chip cannot be written
 #                        while code runs from it, and the settings are saved there).
-#   BOOT_NONE:           internal flash only, 128 KB, no bootloader. This is the release layout:
-#                        one step through the STM32 ROM DFU, no bootloader needed.
-# Pick one with `make APP_TYPE=BOOT_NONE ...`; always `make clean` when you switch.
-# `make program-boot` installs the Daisy bootloader once (BOOT_SRAM only),
-# `make program-dfu` flashes the program.
+# `make program-dfu` flashes the program to the address of the selected layout.
 APP_TYPE ?= BOOT_SRAM
 
 # Hothouse hardware wrapper, libDaisy and DaisySP come from the lib/HothouseExamples
@@ -52,10 +63,11 @@ test:
 	$(MAKE) -C tests run
 	@if command -v node >/dev/null 2>&1; then node tests/js/live_view_test.js; else echo "node not found: skipping the live view test"; fi
 
-# Release build for users: no dev functions, internal flash only (BOOT_NONE), so it can be flashed
-# in one step through the STM32 ROM bootloader (`make program-dfu`). Switching APP_TYPE needs a
+# Release build for users: no dev extras, remote link included, BOOT_SRAM layout (program in
+# the QSPI chip at 0x90040000, started by the Daisy bootloader). Switching options needs a
 # clean build, so this always starts from scratch. Result: build/bass_multiband.bin
+# Flash: `make program-dfu` with the pedal in the Daisy bootloader (or tools/flash.sh).
 .PHONY: release
 release:
 	$(MAKE) clean
-	$(MAKE) BM_DEV=0 APP_TYPE=BOOT_NONE
+	$(MAKE) BM_DEV=0 BM_REMOTE=1 APP_TYPE=BOOT_SRAM

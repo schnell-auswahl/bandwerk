@@ -21,7 +21,7 @@ struct TestEntry {
   TestFn fn;
 };
 inline TestEntry* Registry() {
-  static TestEntry entries[256];
+  static TestEntry entries[1024];
   return entries;
 }
 inline int& RegistryCount() {
@@ -30,6 +30,11 @@ inline int& RegistryCount() {
 }
 struct Registrar {
   Registrar(const char* name, TestFn fn) {
+    if (RegistryCount() >= 1024) {
+      std::printf("too many tests: raise the registry size in test_framework.h\n");
+      ++Failures();
+      return;
+    }
     Registry()[RegistryCount()++] = {name, fn};
   }
 };

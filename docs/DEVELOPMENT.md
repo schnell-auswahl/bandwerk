@@ -1,7 +1,8 @@
 # Development guide
 
 This document covers building, flashing, testing and the development tooling (devkit, bridge, live view,
-measurement rig). For a short overview see the [README](../README.md).
+measurement rig). For a short overview see the [README](../README.md); the USB serial protocol is in
+[PROTOCOL.md](PROTOCOL.md).
 
 ## Repository layout
 
@@ -42,60 +43,77 @@ HothouseExamples revision this firmware was developed against; it is a plain ups
 
 | | Dev build | Release build |
 |---|---|---|
-| Command | `make -C firmware` | `make -C firmware release` |
+| Command | `make -C firmware` | `make -C firmware release` (cleans first) |
 | `BM_DEV` | 1 | 0 |
-| `APP_TYPE` | `BOOT_SRAM` (default) | `BOOT_NONE` |
-| Contains | USB serial link: telemetry, remote commands, CPU load output | the effect only |
-| Flashing | Daisy bootloader, DFU | STM32 ROM DFU, one step |
+| `BM_REMOTE` | 1 | 1 |
+| `APP_TYPE` | `BOOT_SRAM` | `BOOT_SRAM` |
+| USB link | telemetry `[L] [M] [S] [SYS]`, all commands, plus the dev lines `[RAW] [UI] [DFU] [BOOT] [SAVE] [LOOP]` and the commands `reboot save wipe looptest` | telemetry `[L] [M] [S] [SYS]` and the shared commands (`ping hello set oct drv byp page dtype lmode band defaults dfu`) |
+| `hello` says | `build=dev app=boot_sram` | `build=release app=boot_sram` |
 
-`BM_DEV` switches the `#ifdef BM_DEV` blocks in `bass_multiband.cpp` (serial link, telemetry, remote commands,
-CPU meter). Other switches: `BM_DIAG_TONE=1` ignores the inputs and outputs a 1 kHz tone on OUT L and a 500 Hz tone on
-OUT R (to check the output wiring).
+Build switches (Makefile; **always `make clean` when you change one**, `make release` does it for you):
 
-`APP_TYPE` selects the memory layout (the libDaisy core Makefile understands it). **Always `make clean` when you
-switch** (`make release` does this for you):
+- `BM_REMOTE=1` (default): the USB serial link (`devkit::DevLink`), the command module (`ui/dev_commands.h`) and
+  the telemetry, in both builds. `make BM_DEV=0 BM_REMOTE=0` builds the effect without any USB code.
+- `BM_DEV=1` (default): the development extras on top (needs `BM_REMOTE=1`).
+- `BM_DIAG_TONE=1` ignores the inputs and outputs a 1 kHz tone on OUT L and a 500 Hz tone on OUT R (to check the output wiring).
+- Version: `firmware/version.h` (`BM_FW_VERSION`, `BM_PROTO_VERSION`) is the single source for `hello` and for the
+  web installer's `manifest.json` (CI reads it with `sed`, so keep the `#define` lines as they are).
 
-- **`BOOT_NONE`** (release): the program lives in the internal flash (128 KB) and is flashed in one step
-  through the STM32 ROM bootloader. No Daisy bootloader is needed. The QSPI chip stays free; settings are stored there.
-- **`BOOT_SRAM`** (dev): the Daisy bootloader (installed once into the internal flash) copies the program from the QSPI chip into
-  fast RAM at power-up, so it can be up to about 480 KB. The Daisy bootloader's DFU mode lasts as long as you
-  like, and the pedal returns to the program after a power cycle. Used for development because the dev build does not
-  fit into 128 KB.
+`APP_TYPE` selects the memory layout (the libDaisy core Makefile understands it):
+
+- **`BOOT_SRAM`** (release and dev): the Daisy bootloader (`dsy_bootloader_v6_2-intdfu-2000ms.bin` from
+  `lib/HothouseExamples/libDaisy/core`, installed once into the internal flash) copies the program from the QSPI chip
+  (`0x90040000`) into RAM at power-up, so it can be up to about 480 KB. At every power-up the bootloader offers DFU for 2 s,
+  then starts the program; a broken program can always be replaced by power-cycling. The firmware's own bootloader entry
+  (FS1 + FS2, `dfu`) starts it with an infinite DFU timeout; a power cycle returns to the program.
+- **`BOOT_NONE`** (emergency only): the program lives in the internal flash (128 KB), flashed through the STM32 ROM
+  bootloader, no Daisy bootloader. The release build with the USB link does not fit (105 %), so this layout is
+  only used without it: `make BM_DEV=0 BM_REMOTE=0 APP_TYPE=BOOT_NONE` (CI builds it to keep it fitting).
+  FS1 + FS2 and `dfu` then enter the STM32 ROM bootloader.
 - `BOOT_QSPI` (execute in place from the QSPI chip) is not used: the chip cannot be written while code runs from it,
   and the settings are saved there.
 
-Typical flash use (FLASH / SRAM lines of the linker output):
+Memory use (linker output, Arm GNU Toolchain 13.3.rel1). With `BOOT_SRAM` the program image (`.bin`, written to
+QSPI) is the `SRAM` figure; `QSPIFLASH` shows 0 because nothing executes from there.
 
-| Build | FLASH (internal, 128 KB) | SRAM / program RAM |
-|---|---|---|
-| Release, `BOOT_NONE` | 119,968 B (91.5 %) | 41,092 B of 512 KB (7.8 %) |
-| Dev, `BOOT_NONE` | 140,284 B (107 %): does **not** fit, the link fails | 52,448 B |
-| Dev, `BOOT_SRAM` | 0 B (the program is in QSPI and runs from RAM) | 139,900 B of 480 KB (28.5 %) |
+| Build | Command | FLASH (internal, 128 KB) | SRAM (program, 480 KB) | DTCMRAM (128 KB) | `.bin` |
+|---|---|---|---|---|---|
+| Release | `make release` | 0 B | 137,444 B (28.0 %) | 52,440 B (40.0 %) | 137,444 B |
+| Dev | `make` | 0 B | 140,212 B (28.5 %) | 52,448 B (40.0 %) | 140,212 B |
+| No USB link, `BOOT_SRAM` | `make BM_DEV=0 BM_REMOTE=0` | 0 B | 119,576 B (24.3 %) | 41,092 B (31.4 %) | 119,576 B |
+| No USB link, emergency | `make BM_DEV=0 BM_REMOTE=0 APP_TYPE=BOOT_NONE` | 119,968 B (91.5 %) | 41,092 B of 512 KB (data) | - | 119,968 B |
+| Release, `BOOT_NONE` | `make BM_DEV=0 APP_TYPE=BOOT_NONE` | 137,844 B (105 %): does **not** fit, the link fails | | | |
 
-The release build therefore has about 11 KB of flash headroom; watch the `FLASH:` line of the linker output when adding code.
+The USB link (CDC stack, DevLink, telemetry, commands) costs about 18 KB.
 
 ## Flashing
 
-Put the pedal into a bootloader first. Either hold **FS1 + FS2 for about 2 s** while the firmware runs (the LEDs
-alternate), or press **BOOT + RESET** on the Daisy Seed. The firmware's own gesture jumps into the Daisy bootloader when it was built
-with `BOOT_SRAM` and into the STM32 ROM bootloader when it was built with `BOOT_NONE`.
-
-`tools/flash.sh` wraps the commands (it needs `dfu-util` and the toolchain):
+`tools/flash.sh` wraps the commands (it needs `dfu-util` and the toolchain; the default variant is `dev`):
 
 ```sh
-tools/flash.sh release        # release build, BOOT_NONE, flashed through the STM32 ROM DFU
-tools/flash.sh setup          # ONCE for the dev layout: installs the Daisy bootloader, then the dev build
-tools/flash.sh app            # dev build into the QSPI chip (BOOT_SRAM, through the Daisy bootloader)
-tools/flash.sh app release    # release build in the BOOT_SRAM layout
+tools/flash.sh setup release  # ONCE (pedal runs other firmware): Daisy bootloader + program, through the STM32 ROM DFU
+tools/flash.sh app release    # update: release build into the QSPI chip, through the Daisy bootloader
+tools/flash.sh app            # update: dev build
+tools/flash.sh internal       # EMERGENCY: effect without USB link in the internal flash (BOOT_NONE)
 ```
 
-Without the script: `make -C firmware release` followed by `make -C firmware program-dfu` flashes the release
-build; for the dev layout use `make program-boot` (bootloader, once) and `make program-dfu` (program).
-`dfu-util` may print "Error during download get_status" at the very end; that is harmless.
+Entering a bootloader:
 
-Emergency (program does not start, or you want to go from the dev layout to the release layout): BOOT + RESET on the Daisy, then
-`tools/flash.sh release`. Switching layouts overwrites the internal flash, so the Daisy bootloader is gone afterwards
-(run `tools/flash.sh setup` to get it back).
+- **Daisy bootloader** (for `app`): hold **FS1 + FS2 for about 2 s** while the firmware runs (the LEDs alternate), send
+  `dfu` (`tools/pedal_ctl.py dfu`, or the web studio), or power-cycle and start flashing within 2 s
+  (`flash.sh app` waits for the device with `dfu-util -w`).
+- **STM32 ROM bootloader** (for `setup` and `internal`): **BOOT + RESET** on the Daisy Seed, or FS1 + FS2 on a firmware built
+  with `BOOT_NONE` (and on most other Hothouse firmwares).
+
+Without the script: `make program-boot` installs the Daisy bootloader (pedal in the ROM bootloader), `make program-dfu`
+flashes the program of the current build to its layout's address. `dfu-util` may print
+"Error during download get_status" at the very end; that is harmless.
+
+`tools/flash.sh internal` overwrites the internal flash, so the Daisy bootloader is gone afterwards
+(`tools/flash.sh setup release` brings it back). The settings in the QSPI chip (first 32 KB) survive all of this.
+
+Both DFU devices report USB `0483:df11`. Release assets and the web installer (`site/firmware/`, written by
+`.github/workflows/pages.yml` with `manifest.json`) contain the program and the bootloader `.bin`.
 
 ## Host tests
 
@@ -121,17 +139,21 @@ Warnings are errors in the tests (`-Wall -Wextra -Werror`). The firmware build s
 - Parameters reach the audio thread only glitch-free (shared volatile floats, smoothing in the audio thread). Every audible
   parameter is smoothed (`fonepole` or a ramp).
 - Denormals: use double state in recursive filters where precision matters (`biquad.h`), flush or add tiny offsets elsewhere.
-- CPU budget: below about 70 % peak with everything on. The dev build reports the load (`[SYS]`).
+- CPU budget: below about 70 % peak with everything on. Both builds report the load (`[SYS]`).
 - Footswitches use their own logic (no `RegisterFootswitchCallbacks`: the library's 2 s long-press threshold is too long).
   The FS1 + FS2 bootloader gesture is preserved by `ui/dfu_gesture.h` (debounced, 120 ms grace period), with the library's
   `CheckResetToBootloader()` as a fallback for the internal-flash layout.
 - Settings are stored in the QSPI flash from offset 0 (a ring buffer of 8 sectors with checksums, appended instead of erased) and written
   only after 3 s without changes, only from the main loop. Bump `kSettingsVersion` when the layout changes.
 
-## Devkit, bridge and live view (dev build only)
+## Devkit, bridge and live view
 
-The dev build talks over USB serial through `devkit::DevLink` (`devkit/firmware/dev_link.h`): `Print()` never blocks and
-drops messages when nobody is reading, `PopLine()` returns commands sent by the host. Details and how to use the devkit in another
+Both builds talk over USB serial through `devkit::DevLink` (`devkit/firmware/dev_link.h`): `Print()` never blocks and
+drops messages when nobody is reading, `PopLine()` returns commands sent by the host. The transmit queue and the line
+assembler are hardware-free (`devkit/firmware/dev_link_core.h`) and unit-tested (`firmware/tests/test_dev_link.cpp`):
+no host, port closed, port closed in the middle of a transfer and a host vanishing in the middle of a line never make the
+main loop wait. DevLink does not use `daisy::Logger` at all and only offers data to the USB driver while a host has configured
+the device. Details and how to use the devkit in another
 project: [devkit/README.md](../devkit/README.md).
 
 Python setup (once):
@@ -155,7 +177,7 @@ It serves `site/index.html` (the live view is a section of that page), parsed te
 diagram: every block shows its settings and levels, the pedal's knobs and switches are mirrored, and with the "control" box ticked
 you can operate the pedal from the browser (the page sends the same commands as the remote commands below).
 
-Without hardware: `tools/fake_pedal.py` simulates the pedal on a pseudo terminal;
+Without hardware: `tools/fake_pedal.py` simulates the pedal on a pseudo terminal (it answers like a release build, `--build dev` for dev; `dfu` closes it);
 start `tools/live_server.py --port 8799 --device <pty path printed by fake_pedal.py>` (use another port if the real bridge is running).
 
 The measurement and logging scripts (`rig.py`, `m*_check.py`, `serial_log.py`) read the log through the bridge when it runs
@@ -163,12 +185,13 @@ The measurement and logging scripts (`rig.py`, `m*_check.py`, `serial_log.py`) r
 
 ### Remote commands
 
-Dev build only (`firmware/ui/dev_commands.h`, plus a few hardware commands in `bass_multiband.cpp`). One line in, one reply line out
-(`[CMD] ok ...` or `[CMD] err ...`):
+Both builds (`firmware/ui/dev_commands.h`, plus the dev-only hardware commands in `bass_multiband.cpp`). One line in, one reply
+line out (`[CMD] ok ...` or `[CMD] err ...`); exact replies and errors: [PROTOCOL.md](PROTOCOL.md).
 
 | Command | Effect |
 |---|---|
 | `ping` | check the link |
+| `hello` | firmware version, protocol version, build, layout: `ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram` |
 | `set <name\|index> <permille>` | stored parameter, 0..1000 |
 | `oct on\|off`, `drv on\|off`, `byp on\|off` | octaver, drive, bypass (the page does not change) |
 | `page comp\|loop\|oct\|drive` | open a page |
@@ -176,29 +199,32 @@ Dev build only (`firmware/ui/dev_commands.h`, plus a few hardware commands in `b
 | `lmode bridge\|loop\|inv` | loop mode (as S2) |
 | `band high\|both\|low` | band edited on page COMP (as S1) |
 | `defaults` | factory defaults, octave and drive off |
-| `looptest` | measure the FX loop now (see below) |
-| `reboot`, `save`, `wipe`, `dfu` | restart, save now, erase the stored settings, enter the bootloader |
+| `dfu` | reply, then enter the bootloader (Daisy bootloader with infinite timeout; ROM bootloader with `BOOT_NONE`) |
+| `looptest` | dev only: measure the FX loop now (see below) |
+| `reboot`, `save`, `wipe` | dev only: restart, save now, erase the stored settings |
 
-`tools/pedal_ctl.py` wraps them in real units (`tools/pedal_ctl.py set high.threshold -24`, `bypass off`, `standard`, `names` lists every
-parameter), and from Python: `from pedal_ctl import Pedal; p = Pedal(); p.standard(); p.set("low.drywet", 100)`.
+`tools/pedal_ctl.py` wraps them in real units (`tools/pedal_ctl.py set high.threshold -24`, `bypass off`, `standard`, `hello`, `dfu`,
+`names` lists every parameter), and from Python: `from pedal_ctl import Pedal; p = Pedal(); p.standard(); p.set("low.drywet", 100)`.
 Master and crossover keep the remote value until their knob is moved (the crossover until the knob has caught it).
 `set` and `defaults` make the knobs pick up the value again.
 
 ### Telemetry lines
 
-All numbers are integers (no float printf is linked). The format lives in `bass_multiband.cpp` (`BM_STATE_FMT` and
-`PrintLiveFrame`); `tools/bm_telemetry.py` parses it and the page script (`LV.PM`) must match. When you change the format, change all three.
+All numbers are integers (no float printf is linked). The format lives in `bass_multiband.cpp` (`BM_STATE_FMT`, `BM_SYS_FMT` and
+`PrintLiveFrame`); [PROTOCOL.md](PROTOCOL.md) documents every field, `tools/bm_telemetry.py` parses it, and `tools/fake_pedal.py` and the
+web pages must match. When you change the format, change all of them.
 
 | Line | Rate | Content |
 |---|---|---|
-| `[L]` | 20 Hz | levels in 0.1 dB (in, out, low, high band), knobs, switches, footswitches, LEDs, gain reduction, detected pitch |
-| `[M]` | 20 Hz, same print as `[L]` | peak levels along the signal chain (`ChainMeters`), octaver detector gate, loop delay, effective loop mode |
-| `[S]` | on change and 1 Hz | state: page, band, loop mode, drive type, octave, drive, bypass, takeover mask, and the 22 stored parameters in permille |
-| `[SYS]` | 1 Hz | CPU load, main loop iterations per second (`loops=`, about 500 to 1000; a drop means something blocks), loop latency measurement result |
-| `[UI]` | on change, max 10/s | UI state changes |
-| `[RAW]` | 1 Hz | input level, knobs in permille, switches (0 up, 1 middle, 2 down), footswitches |
-| `[LOOP]` | per measurement | `auto try found lag coef used` |
-| `[DFU]`, `[BOOT]`, `[SAVE]`, `[CMD]` | event | bootloader gesture, start-up, saving, command replies |
+| `[L]` (both builds) | 20 Hz | levels in 0.1 dB (in, out, low, high band), knobs, switches, footswitches, LEDs, gain reduction, detected pitch |
+| `[M]` (both builds) | 20 Hz, same print as `[L]` | peak levels along the signal chain (`ChainMeters`), octaver detector gate, loop delay, effective loop mode |
+| `[S]` (both builds) | on change and 1 Hz | state: page, band, loop mode, drive type, octave, drive, bypass, takeover mask, and the 22 stored parameters in permille |
+| `[SYS]` (both builds) | 1 Hz | CPU load, main loop iterations per second (`loops=`, about 500 to 1000; a drop means something blocks), loop latency measurement result |
+| `[UI]` (dev) | on change, max 10/s | UI state changes |
+| `[RAW]` (dev) | 1 Hz | input level, knobs in permille, switches (0 up, 1 middle, 2 down), footswitches |
+| `[LOOP]` (dev) | per measurement | `auto try found lag coef used` |
+| `[CMD]` (both builds) | reply | command replies |
+| `[DFU]`, `[BOOT]`, `[SAVE]` (dev) | event | bootloader gesture, start-up, saving |
 
 The `[L]` and `[M]` lines together are about 330 characters; the DevLink buffer is 448. Levels come from `BassChain::TakeMeters()` (peaks per 50 ms window).
 Adding a measuring point means: a field in `ChainMeters`, a `PeakHold` in `Process`, the `[M]` print, `M_LEVELS` in
@@ -262,10 +288,15 @@ with the send wired straight to the return; `tools/loop_check.py` measures it.
 - **Never log through `hw.seed.PrintLine`.** `daisy::Logger` switches to blocking transmission for good after two successful packets. If the host
   then closes the port, the main loop (UI, LEDs, the bootloader gesture) hangs forever. It looked like "the bootloader gesture only works
   while a terminal is open". Use the non-blocking `devkit::DevLink`, integer formats only, and watch `loops=` in `[SYS]`.
+- libDaisy's `CDC_Transmit_FS` reads the CDC class data through a pointer that is null until a host configures the device
+  (no cable, USB power only, after a disconnect). DevLink checks the USB device state first.
+- After `Print()` a reply may still sit in DevLink's buffer while the driver is busy with telemetry; before a reset use
+  `Flush(ms)` (bounded), not a single `Pump()`, or the host may never see `[CMD] ok dfu`.
 - A serial port can be read by one program at a time: run the bridge and let everything else go through it.
 - The logger's buffer holds 128 bytes per line; `DevLink` has its own, larger buffers.
 - The library's bootloader gesture restarts its timer on every short release and is therefore unreliable; the firmware uses its own
-  debounced gesture. With the Daisy bootloader layout (`BOOT_APP`) the library gesture is disabled, because the STM32 ROM bootloader cannot write the QSPI chip.
+  debounced gesture. With the Daisy bootloader layout (`BOOT_APP`, defined by libDaisy for `BOOT_SRAM`) the library gesture is disabled, because the
+  STM32 ROM bootloader cannot write the QSPI chip; the firmware's own gesture enters the Daisy bootloader instead.
 - Biquads need double precision state (single precision gives only about 14 bit of dynamic range at low crossover frequencies).
 - Avoid double-precision `sin`/`cos` in the firmware (about 3.5 KB of flash each); in the 128 KB layout the libm functions
   (`powf`, `expf`, `logf`, `tanhf`, `sinf`, `cosf`) and libDaisy dominate the flash use, and `-Os` saves little.
