@@ -246,7 +246,7 @@ export class DemoPedal {
     const [ch, cl] = comp;
     const measuring = this.measureUntil > 0;
     const loopOn = this.loop !== 0 && !measuring;
-    const sd = loopOn && ch > -119 ? ch + loopLevelDb(pm[P.loop]) : measuring ? -18 : SILENT;
+    const sd = loopOn && !this.byp && ch > -119 ? ch + loopLevelDb(pm[P.loop]) : measuring ? -18 : SILENT;  // bypass mutes the send
     const rt = loopOn && sd > -119 ? sd - 0.6 + 0.3 * Math.sin(now / 300) : SILENT;
     const mix = pm[P.loop + 1];
     const lp = loopOn ? psum(ch + lin2db(1 - mix), rt + loopLevelDb(pm[P.loop + 2]) + lin2db(mix)) : ch;

@@ -1,4 +1,5 @@
 // FX loop (M4): latency delay, measuring probe and the loop block in the chain.
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -218,6 +219,37 @@ TEST(bridge_mutes_the_send_and_ignores_the_return) {
   }
   CHECK(same);
   CHECK(silent);
+}
+
+TEST(bypass_mutes_the_send_with_a_ramp_and_brings_it_back) {
+  ChainParams p = NoComp();
+  p.loop_mode = 1;  // Loop
+  BassChain c;
+  c.Init(kFs, p);
+  float send = 0.0f, peak = 0.0f, max_step = 0.0f, prev = 0.0f;
+  auto run = [&](int n) {
+    peak = 0.0f;
+    for (int i = 0; i < n; ++i) {
+      const float x = 0.3f * static_cast<float>(sin(2.0 * kTestPi * 1000.0 * i / kFs));
+      c.Process(x, 0.0f, &send);
+      peak = std::max(peak, std::fabs(send));
+      max_step = std::max(max_step, std::fabs(send - prev));
+      prev = send;
+    }
+  };
+  run(static_cast<int>(0.3 * kFs));
+  CHECK(peak > 0.1f);                       // loop on: the send carries the high band
+  p.bypass = true;
+  c.SetParams(p);
+  max_step = 0.0f;
+  run(static_cast<int>(0.05 * kFs));        // crossfade (~10 ms) ...
+  run(static_cast<int>(0.2 * kFs));
+  CHECK(peak < 1e-3f);                      // ... then the send is silent
+  p.bypass = false;
+  c.SetParams(p);
+  run(static_cast<int>(0.3 * kFs));
+  CHECK(peak > 0.1f);                       // and it comes back after bypass
+  CHECK(max_step < 0.1f);                   // ramped, no jump (1 kHz sine at 0.3 moves < 0.04 per sample)
 }
 
 TEST(ideal_loop_keeps_the_band_sum_flat_at_800_hz) {

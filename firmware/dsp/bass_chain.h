@@ -3,7 +3,7 @@
 // in are marked with "HOOK".
 //
 //   M2:  trim -> DC blocker -> crossover LR4 -> band mixer -> master -> soft clip
-//        global bypass: raw IN L crossfaded in (10 ms)
+//        global bypass: raw IN L crossfaded in (10 ms), FX send muted
 //   M3:  one compressor per band right after the crossover
 //   M5:  octaver (-1 into the low sum, +1 into the high sum), detector runs always
 //   M6:  drive on the high band (+ fuzz split of the low band), both bands delayed by the
@@ -212,9 +212,13 @@ class BassChain {
     float sub, up;
     octaver_.Process(x, &sub, &up);
 
+    // Global bypass crossfade (0 = effect, 1 = bypass), ~10 ms. It also mutes
+    // the FX send, so the pedals in the loop get nothing while bypassed.
+    const float b = bypass_.Process();
+
     // FX loop. In Bridge the send is muted, the mix is 0 and both
     // delays are 0, so this is a plain pass-through of comp_high / comp_low.
-    *send = comp_high * loop_send_.Process();
+    *send = comp_high * loop_send_.Process() * (1.0f - b);
     const float loop_dry = loop_dry_delay_.Process(comp_high);
     const float m = loop_mix_.Process();
     const float high_looped = loop_dry + (ret * loop_ret_.Process() - loop_dry) * m;
@@ -263,7 +267,6 @@ class BassChain {
     PeakHold(&meters_.processed, processed);
 
     // Everything above keeps running in bypass (no pumping on return).
-    const float b = bypass_.Process();
     const float out = processed * (1.0f - b) + in * b;
     PeakHold(&meters_.out, out);
     return out;
