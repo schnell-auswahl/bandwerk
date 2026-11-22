@@ -1,0 +1,150 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Web installer. Everything is scoped under .flasher; only tokens.css variables are used for color,
+ * type and spacing. Color field style: flat, square, solid panels, --fx-io (cyan) is the installer's color.
+ * Works with or without base.css. */
+
+.flasher {
+  --fl-pad: clamp(20px, 3vw, 36px);
+  box-sizing: border-box;
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  text-align: left;
+}
+.flasher *, .flasher *::before, .flasher *::after { box-sizing: border-box; }
+.flasher h2, .flasher h3, .flasher h4, .flasher p, .flasher ol, .flasher ul, .flasher pre { margin: 0; padding: 0; }
+.flasher a { color: var(--fx-io); text-decoration: underline; text-underline-offset: 3px; }
+.flasher a:hover { color: var(--paper); }
+.flasher b { font-weight: 800; }
+.flasher :focus-visible { outline: var(--border) solid var(--focus); outline-offset: 2px; }
+
+.flasher .fl-wrap { display: grid; gap: var(--sp-6); max-width: var(--max); margin: 0 auto; }
+.flasher .fl-stack { display: grid; gap: var(--sp-5); }
+.flasher .fl-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+
+/* 3-step header */
+.flasher .fl-steps { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.flasher .fl-step { padding: var(--sp-5) var(--sp-5) var(--sp-5) 0; border-right: 1px solid var(--line); color: var(--mute); }
+.flasher .fl-step + .fl-step { padding-left: var(--sp-5); }
+.flasher .fl-step:last-child { border-right: 0; }
+.flasher .fl-num {
+  display: block; font-weight: 900; font-stretch: var(--stretch-numbers); letter-spacing: -0.06em;
+  font-size: clamp(56px, 8vw, 120px); line-height: 0.85; color: var(--line-strong);
+}
+.flasher .fl-step h3 { margin: var(--sp-4) 0 var(--sp-1); font-size: clamp(20px, 2.2vw, 30px); font-weight: 900; font-stretch: 105%; letter-spacing: -0.03em; line-height: 1; }
+.flasher .fl-step p { font-size: var(--fs-small); max-width: 30ch; }
+.flasher .fl-step.is-active { color: var(--paper); }
+.flasher .fl-step.is-active .fl-num { color: var(--fx-io); }
+.flasher .fl-step.is-done .fl-num { color: var(--fx-io); opacity: 0.45; }
+
+/* Panels and cards */
+.flasher .fl-panel { background: var(--ink-2); padding: var(--fl-pad); display: grid; gap: var(--sp-4); align-content: start; }
+.flasher .fl-panel h2, .flasher .fl-card h3 {
+  font-weight: 900; font-stretch: var(--stretch-display); letter-spacing: var(--track-display); line-height: 0.95;
+}
+.flasher .fl-panel h2 { font-size: clamp(32px, 4.4vw, 64px); }
+.flasher .fl-panel h3 { font-size: clamp(22px, 2.4vw, 32px); font-weight: 900; font-stretch: var(--stretch-display); letter-spacing: var(--track-display); line-height: 1; }
+.flasher .fl-panel.is-solid { background: var(--fx-io); color: var(--on-fx); }
+.flasher .fl-panel.is-warn { background: var(--fx-comp); color: var(--on-fx); }
+.flasher .fl-panel.is-err { background: var(--fx-drive); color: var(--on-fx); }
+.flasher .fl-panel.is-attn { background: var(--ink-2); border: var(--border) solid var(--fx-io); }
+.flasher .fl-panel.is-solid a, .flasher .fl-panel.is-warn a, .flasher .fl-panel.is-err a { color: var(--on-fx); }
+
+.flasher .fl-card { background: var(--ink-2); padding: var(--fl-pad); display: flex; flex-direction: column; gap: var(--sp-3); min-height: 260px; }
+.flasher .fl-card > .fl-btn { margin-top: auto; }
+.flasher .fl-card h3 { font-size: clamp(32px, 3.6vw, 56px); }
+.flasher .fl-card p { max-width: 38ch; }
+.flasher .fl-card.is-primary { background: var(--fx-io); color: var(--on-fx); }
+.flasher .fl-eyebrow, .flasher .fl-info { font-family: var(--mono); font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: var(--track-label); }
+.flasher .fl-info { color: var(--mute); text-transform: none; letter-spacing: 0.02em; }
+.flasher .fl-info b { color: var(--fx-io); font-weight: 800; }
+.flasher .fl-mono { font-family: var(--mono); letter-spacing: 0.02em; }
+.flasher .fl-small { font-size: var(--fs-small); color: var(--mute); }
+.flasher .fl-panel.is-solid .fl-small, .flasher .fl-panel.is-warn .fl-small, .flasher .fl-panel.is-err .fl-small, .flasher .fl-card.is-primary .fl-small { color: var(--on-fx); }
+.flasher code.fl-mono { background: var(--ink-3); padding: 1px 6px; font-size: 0.9em; }
+
+/* Buttons: square, 2 px border */
+.flasher .fl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  font: inherit; font-weight: 800; font-size: 17px; line-height: 1.1; text-decoration: none; cursor: pointer;
+  padding: 16px 24px; border: var(--border) solid var(--paper); background: transparent; color: var(--paper); border-radius: var(--radius);
+  transition: transform var(--t-fast);
+}
+.flasher .fl-btn:hover:not(:disabled) { transform: translateY(-2px); color: var(--paper); }
+.flasher .fl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.flasher .fl-btn.is-solid { background: var(--fx-io); border-color: var(--fx-io); color: var(--on-fx); }
+.flasher .fl-btn.is-solid:hover:not(:disabled) { color: var(--on-fx); }
+.flasher .fl-card.is-primary .fl-btn { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.flasher .fl-panel.is-solid .fl-btn, .flasher .fl-panel.is-err .fl-btn, .flasher .fl-panel.is-warn .fl-btn { border-color: var(--ink); color: var(--ink); }
+.flasher .fl-panel.is-solid .fl-btn.is-solid, .flasher .fl-panel.is-err .fl-btn.is-solid { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.flasher .fl-btn.is-ghost { border-color: var(--line-strong); color: var(--mute); }
+.flasher .fl-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+
+/* Lists */
+.flasher .fl-list { list-style: none; counter-reset: fl; display: grid; gap: var(--sp-4); }
+.flasher .fl-list > li { counter-increment: fl; position: relative; padding-left: 2.2em; }
+.flasher .fl-list > li::before { position: absolute; left: 0; top: 0; font-family: var(--mono); font-weight: 800; }
+.flasher ol.fl-list > li::before { content: counter(fl); color: var(--fx-io); }
+.flasher ul.fl-list > li::before { content: "\2192"; }
+.flasher .fl-list > li > p { margin-top: var(--sp-1); }
+.flasher .fl-list .fl-btn { font-size: 15px; padding: 10px 16px; margin: var(--sp-1) var(--sp-2) var(--sp-1) 0; }
+
+/* Notices */
+.flasher .fl-notice { font-family: var(--mono); font-size: var(--fs-small); padding: var(--sp-3) var(--sp-4); background: var(--ink-3); border-left: 6px solid var(--fx-io); }
+.flasher .fl-notice.is-ok { border-left-color: var(--ok); }
+.flasher .fl-notice.is-warn { border-left-color: var(--warn); }
+.flasher .fl-notice.is-err { border-left-color: var(--err); }
+.flasher .fl-warn { font-family: var(--mono); font-weight: 800; font-size: var(--fs-small); text-transform: uppercase; letter-spacing: 0.06em; border-top: 3px solid var(--ink); padding-top: var(--sp-3); }
+
+/* Details */
+.flasher .fl-details { background: var(--ink-2); border-top: 1px solid var(--line); }
+.flasher .fl-details > summary {
+  cursor: pointer; padding: var(--sp-4) var(--fl-pad); font-family: var(--mono); font-size: var(--fs-label); font-weight: 600;
+  text-transform: uppercase; letter-spacing: var(--track-label); list-style: none;
+}
+.flasher .fl-details > summary::-webkit-details-marker { display: none; }
+.flasher .fl-details > summary::before { content: "+"; display: inline-block; width: 1.4em; color: var(--fx-io); font-weight: 800; }
+.flasher .fl-details[open] > summary::before { content: "\2212"; }
+.flasher .fl-details > :not(summary) { padding: 0 var(--fl-pad) var(--sp-5); }
+.flasher .fl-adv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6); }
+.flasher .fl-adv > div { display: grid; gap: var(--sp-3); align-content: start; }
+.flasher .fl-adv h4, .flasher .fl-os h4 { font-weight: 900; font-stretch: 105%; letter-spacing: -0.02em; font-size: 20px; }
+.flasher .fl-os { padding-top: var(--sp-4); display: grid; gap: var(--sp-2); }
+.flasher .fl-os ol { padding-left: 1.3em; display: grid; gap: var(--sp-1); }
+.flasher .fl-you { font-family: var(--mono); font-size: 11px; font-weight: 800; background: var(--fx-io); color: var(--on-fx); padding: 2px 6px; margin-left: var(--sp-2); text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; }
+.flasher .fl-pre { font-family: var(--mono); font-size: 13px; background: var(--ink); color: var(--paper); padding: var(--sp-4); white-space: pre-wrap; word-break: break-all; border: 1px solid var(--line); }
+.flasher .fl-file { font: inherit; font-family: var(--mono); font-size: var(--fs-small); color: var(--paper); max-width: 100%; }
+.flasher .fl-file::file-selector-button { font: inherit; font-weight: 800; background: transparent; color: var(--paper); border: var(--border) solid var(--paper); padding: 8px 14px; margin-right: var(--sp-3); cursor: pointer; border-radius: var(--radius); }
+
+/* Progress */
+.flasher .fl-big { font-weight: 900; font-stretch: var(--stretch-numbers); letter-spacing: -0.05em; font-size: clamp(96px, 16vw, 220px); line-height: 0.8; }
+.flasher .fl-big small { font-size: 0.35em; margin-left: 0.08em; letter-spacing: 0; }
+.flasher .fl-bar { height: 18px; background: var(--ink); }
+.flasher .fl-bar > i { display: block; height: 100%; background: var(--paper); transition: width var(--t-med); }
+.flasher .fl-phases { list-style: none; display: grid; background: var(--ink-2); }
+.flasher .fl-phase { display: grid; grid-template-columns: 2em 1fr auto; gap: var(--sp-2); align-items: baseline; padding: var(--sp-3) var(--fl-pad); border-top: 1px solid var(--line); color: var(--mute); }
+.flasher .fl-phase:first-child { border-top: 0; }
+.flasher .fl-mark { font-family: var(--mono); font-weight: 800; }
+.flasher .fl-phase.is-active { color: var(--paper); background: var(--ink-3); }
+.flasher .fl-phase.is-active .fl-mark, .flasher .fl-phase.is-done .fl-mark { color: var(--fx-io); }
+.flasher .fl-phase.is-done { color: var(--paper); }
+.flasher .fl-phase.is-error .fl-mark { color: var(--err); }
+.flasher .fl-detail { font-size: var(--fs-small); color: var(--mute); text-align: right; }
+.flasher .fl-help { border-top: 1px solid var(--line); padding-top: var(--sp-4); display: grid; gap: var(--sp-2); }
+.flasher .fl-help ul { padding-left: 1.2em; display: grid; gap: var(--sp-2); }
+
+@media (max-width: 760px) {
+  .flasher { font-size: 16px; }
+  .flasher .fl-cols, .flasher .fl-adv { grid-template-columns: minmax(0, 1fr); }
+  .flasher .fl-steps { grid-template-columns: minmax(0, 1fr); }
+  .flasher .fl-step, .flasher .fl-step + .fl-step { padding: var(--sp-4) 0; border-right: 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 72px 1fr; column-gap: var(--sp-4); align-items: center; }
+  .flasher .fl-step .fl-num { grid-row: 1 / span 2; font-size: 56px; }
+  .flasher .fl-step h3 { margin: 0; }
+  .flasher .fl-step:not(.is-active) p { display: none; }
+  .flasher .fl-card { min-height: 0; }
+  .flasher .fl-phase { grid-template-columns: 2em 1fr; }
+  .flasher .fl-detail { grid-column: 2; text-align: left; }
+  .flasher .fl-btn { width: 100%; }
+  .flasher .fl-list .fl-btn { width: auto; }
+}

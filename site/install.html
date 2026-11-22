@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install firmware: Hothouse Bass Multiband</title>
+<meta name="description" content="Install or update Hothouse Bass Multiband on your Hothouse pedal from the browser (WebUSB).">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/flasher.css">
+<style>
+  /* test page only: the real site styles come from base.css / site.css */
+  html { background: var(--ink); }
+  body { margin: 0; background: var(--ink); color: var(--paper); font-family: var(--sans); }
+  .page { max-width: var(--max); margin: 0 auto; padding: var(--sp-7) var(--gut) var(--sp-9); }
+  .page > h1 { font-weight: 900; font-stretch: var(--stretch-display); letter-spacing: var(--track-display); line-height: .9; font-size: clamp(44px, 8vw, 120px); margin: 0 0 var(--sp-6); }
+  .page > h1 span { color: var(--fx-io); }
+  .mockbar { margin: 0 0 var(--sp-6); padding: var(--sp-4); background: var(--ink-2); border-left: 6px solid var(--fx-comp); font-family: var(--mono); font-size: var(--fs-small); display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+  .mockbar b { color: var(--fx-comp); text-transform: uppercase; letter-spacing: var(--track-label); }
+  .mockbar button { font: inherit; font-weight: 800; color: var(--paper); background: transparent; border: 2px solid var(--line-strong); padding: 8px 12px; cursor: pointer; border-radius: 0; }
+  .mockbar button:hover { border-color: var(--paper); }
+</style>
+</head>
+<body>
+<main class="page">
+  <h1>Install <span>firmware</span></h1>
+  <div id="flasher-root"></div>
+</main>
+<script type="module">
+  import { mountFlasher } from "./js/flasher/main.js";
+  const q = new URLSearchParams(location.search);
+  const options = { onFlashed: () => console.log("flashed") };
+
+  // ?mock=1 runs the whole wizard against a simulated pedal (no hardware): see site/tests/flasher/mock-usb.js
+  // ?unsupported=1 pretends the browser has no WebUSB.   ?pedal=rom|daisy|app sets the simulated starting state.
+  if (q.get("unsupported")) {
+    options.env = { usb: null, serial: null };
+  } else if (q.get("mock")) {
+    const { MockClock, MockPedal, MockUsb, MockSerial } = await import("./tests/flasher/mock-usb.js");
+    const boot = new Uint8Array(await (await fetch("firmware/dsy_bootloader_v6_2-intdfu-2000ms.bin")).arrayBuffer());
+    const clock = new MockClock({ real: true, scale: Number(q.get("speed") || 0.4) });
+    const usb = new MockUsb();
+    const pedal = new MockPedal(usb, { clock, bootloaderSig: [...boot.subarray(0, 8)] });
+    const start = q.get("pedal") || "app";
+    pedal.enter(start === "rom" ? "rom" : start === "daisy" ? "daisy-inf" : "app");
+    options.env = { usb, serial: new MockSerial(pedal), sleep: (ms) => clock.sleep(ms) };
+    if (q.get("shared")) pedal.deviceOpts.serial = "200364500000";
+    const bar = document.createElement("div");
+    bar.className = "mockbar";
+    bar.innerHTML = '<b>Simulated pedal (no hardware)</b><span id="ms"></span>';
+    const btn = (label, fn) => { const b = document.createElement("button"); b.textContent = label; b.onclick = () => { fn(); show(); }; bar.append(b); };
+    btn("FS1+FS2 on other firmware / BOOT+RESET (ROM DFU)", () => pedal.enter("rom"));
+    btn("FS1+FS2 on our firmware (Daisy DFU)", () => pedal.enter("daisy-inf"));
+    btn("Power-cycle", () => pedal.powerCycle());
+    const show = () => { bar.querySelector("#ms").textContent = `state: ${pedal.mode}`; };
+    setInterval(show, 300); show();
+    document.querySelector(".page").insertBefore(bar, document.getElementById("flasher-root"));
+    window.__mock = { usb, pedal, clock };
+  }
+  window.flasher = mountFlasher(document.getElementById("flasher-root"), options);
+</script>
+</body>
+</html>
