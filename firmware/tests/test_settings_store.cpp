@@ -98,7 +98,7 @@ TEST(store_power_loss_during_a_write_keeps_the_previous_settings) {
   // The next save is cut off: only part of the record reaches the flash.
   const uint32_t slot = static_cast<uint32_t>(st.newest_slot()) + 1;
   StoreRecord r;
-  std::memset(&r, 0xFF, sizeof r);
+  std::memset(static_cast<void*>(&r), 0xFF, sizeof r);
   r.seq = st.next_sequence();
   r.settings = Make(4);
   std::memcpy(&f.mem[slot * kStoreSlotBytes], &r, 60);  // torn write

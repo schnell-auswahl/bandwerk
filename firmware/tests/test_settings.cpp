@@ -62,12 +62,12 @@ TEST(settings_reject_out_of_range_and_nan_even_with_good_checksum) {
 
 TEST(settings_erased_flash_is_invalid_and_leaves_defaults) {
   Settings s;
-  std::memset(&s, 0xFF, sizeof s);  // erased QSPI reads as 0xFF
+  std::memset(static_cast<void*>(&s), 0xFF, sizeof s);  // erased QSPI reads as 0xFF (raw bytes on purpose)
   Params out = Tweaked();
   CHECK(!UnpackSettings(s, &out));
   Params same = Tweaked();
   CHECK(out.master == same.master && out.octave_on == same.octave_on);
-  std::memset(&s, 0, sizeof s);
+  std::memset(static_cast<void*>(&s), 0, sizeof s);
   CHECK(!SettingsValid(s));
 }
 
