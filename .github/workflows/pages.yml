@@ -1,0 +1,84 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install the Arm GNU Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '13.3.Rel1'
+
+      - name: Pinned library revision
+        id: libs
+        run: echo "rev=$(git rev-parse HEAD:lib/HothouseExamples)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache libDaisy and DaisySP builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/HothouseExamples/libDaisy/build
+            lib/HothouseExamples/DaisySP/build
+          key: libs-${{ runner.os }}-${{ steps.libs.outputs.rev }}
+
+      - name: Build libDaisy and DaisySP
+        run: |
+          make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
+          make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
+
+      - name: Release build (BM_DEV=0, BOOT_NONE)
+        run: make -C firmware release
+
+      - name: Publish the firmware with a manifest
+        run: |
+          mkdir -p site/firmware
+          cp firmware/build/bass_multiband.bin site/firmware/bass_multiband.bin
+          version="$(git describe --tags --always)"
+          sha256="$(sha256sum site/firmware/bass_multiband.bin | cut -d' ' -f1)"
+          size="$(stat -c %s site/firmware/bass_multiband.bin)"
+          cat > site/firmware/manifest.json <<MANIFEST
+          {
+            "name": "bass_multiband",
+            "version": "${version}",
+            "file": "bass_multiband.bin",
+            "sha256": "${sha256}",
+            "size": ${size},
+            "commit": "${GITHUB_SHA}"
+          }
+          MANIFEST
+          cat site/firmware/manifest.json
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

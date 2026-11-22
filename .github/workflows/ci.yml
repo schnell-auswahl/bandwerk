@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install the Arm GNU Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '13.3.Rel1'
+
+      - name: Pinned library revision
+        id: libs
+        run: echo "rev=$(git rev-parse HEAD:lib/HothouseExamples)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache libDaisy and DaisySP builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/HothouseExamples/libDaisy/build
+            lib/HothouseExamples/DaisySP/build
+          key: libs-${{ runner.os }}-${{ steps.libs.outputs.rev }}
+
+      - name: Build libDaisy and DaisySP
+        run: |
+          make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
+          make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
+
+      - name: Release build (BM_DEV=0, BOOT_NONE)
+        run: |
+          make -C firmware release
+          arm-none-eabi-size firmware/build/bass_multiband.elf
+          mkdir -p dist
+          cp firmware/build/bass_multiband.bin dist/bass_multiband.bin
+
+      - name: Dev build (BM_DEV=1, BOOT_SRAM)
+        run: |
+          make -C firmware clean
+          make -C firmware
+          arm-none-eabi-size firmware/build/bass_multiband.elf
+
+      - name: Upload the release firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: bass_multiband-release-bin
+          path: dist/bass_multiband.bin
+          if-no-files-found: error
+
+  tests:
+    name: Host tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Unit tests (g++) and live view test (node)
+        run: make -C firmware test

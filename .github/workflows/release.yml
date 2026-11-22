@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install the Arm GNU Toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '13.3.Rel1'
+
+      - name: Build libDaisy and DaisySP
+        run: |
+          make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
+          make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
+
+      - name: Release build (BM_DEV=0, BOOT_NONE)
+        run: |
+          make -C firmware release
+          mkdir -p dist
+          cp firmware/build/bass_multiband.bin "dist/bass_multiband-${GITHUB_REF_NAME}.bin"
+          (cd dist && sha256sum "bass_multiband-${GITHUB_REF_NAME}.bin" > "bass_multiband-${GITHUB_REF_NAME}.bin.sha256")
+
+      - name: Attach the firmware to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/bass_multiband-*.bin
+            dist/bass_multiband-*.bin.sha256
+          generate_release_notes: true
