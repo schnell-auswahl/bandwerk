@@ -74,7 +74,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'   # node --test with glob patterns needs Node 21+
 
-      - name: Unit tests (g++) and live view test (node)
-        run: make -C firmware test
+      # Called directly: firmware/Makefile includes libDaisy's core Makefile,
+      # and this job does not check out the submodules.
+      - name: Unit tests (g++), studio and installer tests (node)
+        run: |
+          make -C firmware/tests run
+          node --test 'site/tests/*.test.mjs'
+          node --test 'site/tests/flasher/*.test.mjs'

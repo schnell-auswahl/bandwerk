@@ -47,3 +47,4 @@ jobs:
             dist/dsy_bootloader_*.bin.sha256
             dist/LICENSE-libDaisy.txt
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}   # v0.1.0-beta etc.
