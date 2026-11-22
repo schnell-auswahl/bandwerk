@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio · Hothouse Bass Multiband</title>
+<meta name="description" content="Live signal chain, editor and pedal view of the Hothouse Bass Multiband firmware. Demo in the browser, or connect your pedal over USB.">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/studio.css">
+<style>
+  html, body { margin: 0; background: var(--ink); color: var(--paper); }
+  body { font-family: var(--sans); }
+  .page { max-width: var(--max); margin: 0 auto; padding: var(--sp-6) var(--gut) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-5); }
+  .page header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--sp-3) var(--sp-6); }
+  .page .eyebrow { font: 600 var(--fs-label) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--fx-io); margin: 0 0 var(--sp-2); }
+  .page h1 { font: 900 var(--fs-h3) / .95 var(--sans); font-stretch: var(--stretch-display); letter-spacing: var(--track-display); margin: 0; }
+  .page header p { max-width: 46ch; color: var(--mute); margin: 0; font-size: var(--fs-small); }
+  .page header a { color: var(--fx-io); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <p class="eyebrow">Hothouse Bass Multiband · Studio</p>
+      <h1>The signal chain, live.</h1>
+    </div>
+    <p>Click any block to edit it. Without a pedal the studio runs a simulated one; connect your pedal over USB and every change goes straight to the hardware. <a href="index.html#install">Install the firmware</a></p>
+  </header>
+  <div id="studio-root"></div>
+</div>
+<script type="module">
+  import { mountStudio } from './js/studio/main.js';
+  const q = new URLSearchParams(location.search);
+  window.studio = mountStudio(document.getElementById('studio-root'), {
+    transport: q.get('transport') || 'auto',
+    bridgeUrl: q.get('bridge') || undefined,
+    compact: q.has('compact'),
+  });
+</script>
+</body>
+</html>

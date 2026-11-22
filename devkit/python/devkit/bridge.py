@@ -3,7 +3,8 @@
 It is the ONE program that opens the serial port (a port can only be used by a
 single program). Everything else connects to this server instead:
 
-  GET  /          your HTML page
+  GET  /          your HTML page (with a static directory: its default page)
+  GET  /<path>    files of the static directory, if one is given
   GET  /events    Server-Sent Events: lines parsed by your parse_line() as JSON
   GET  /raw       the raw lines as plain text (for measurement tools)
   GET  /state     JSON snapshot of the latest parsed state
@@ -14,15 +15,17 @@ Use it from a project wrapper:
 
     from devkit.bridge import main
     main(parse_line=my_parse_line, default_html="page.html")
+    # or serve a whole folder (ES modules, CSS, fonts ...) and open one page of it:
+    main(parse_line=my_parse_line, default_html="studio.html", static_dir="site")
 
 parse_line(line) -> dict or None. A dict needs a "t" key (message type); the
 types "S" and "SYS" are remembered and replayed to new browser clients, "log"
 messages are kept in a short history. Only the standard library is used.
 """
-import argparse, glob, json, os, queue, select, sys, threading, time
+import argparse, glob, json, mimetypes, os, queue, select, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 try:  # raw mode keeps the terminal layer from touching the bytes we write
     import termios, tty
@@ -175,7 +178,38 @@ def serial_loop(hub, parse_line, device, port_pattern, stop):
         time.sleep(0.5)
 
 
-def make_handler(hub, html_path):
+# Content types for the static directory. ES modules must be served as JavaScript.
+MIME = {
+    ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json",
+    ".woff2": "font/woff2", ".woff": "font/woff", ".bin": "application/octet-stream",
+    ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon", ".webp": "image/webp",
+    ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+}
+
+
+def content_type(path):
+    ext = os.path.splitext(str(path))[1].lower()
+    return MIME.get(ext) or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+
+
+def static_file(root, url_path):
+    """Maps a URL path to a file inside root (None if outside or missing)."""
+    root = Path(root).resolve()
+    rel = url_path.lstrip("/")
+    target = (root / rel).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        return None  # ../ tricks
+    if target.is_dir():
+        target = target / "index.html"
+    return target if target.is_file() else None
+
+
+def make_handler(hub, html_path, static_dir=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -210,7 +244,7 @@ def make_handler(hub, html_path):
 
         def do_GET(self):
             url = urlparse(self.path)
-            if url.path in ("/", "/index.html"):
+            if url.path == "/" or (static_dir is None and url.path == "/index.html"):
                 try:
                     self._send(200, "text/html; charset=utf-8", Path(html_path).read_bytes())
                 except OSError:
@@ -247,24 +281,37 @@ def make_handler(hub, html_path):
                     pass
                 finally:
                     hub.unsubscribe(q)
+            elif static_dir is not None and (f := static_file(static_dir, unquote(url.path))) is not None:
+                try:
+                    self._send(200, content_type(f), f.read_bytes())
+                except OSError:
+                    self.send_error(404)
             else:
                 self.send_error(404)
 
     return Handler
 
 
-def main(parse_line, default_html, port_pattern="/dev/cu.usbmodem*", reply_prefix="[CMD]", argv=None):
+def main(parse_line, default_html, port_pattern="/dev/cu.usbmodem*", reply_prefix="[CMD]", argv=None,
+         static_dir=None):
+    """default_html: the page served at "/". With static_dir, every file of that
+    folder is served too and default_html may be a path relative to it."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--device", help="serial device (default: auto-detect)")
-    ap.add_argument("--html", default=str(default_html))
+    ap.add_argument("--html", default=None, help="page served at / (default: %s)" % default_html)
+    ap.add_argument("--static", default=str(static_dir) if static_dir else None,
+                    help="folder served as static files (default: %(default)s)")
     a = ap.parse_args(argv)
+    html = a.html or default_html
+    if a.static and not Path(html).is_absolute():
+        html = Path(a.static) / html
 
     hub = Hub(reply_prefix)
     stop = threading.Event()
     threading.Thread(target=serial_loop, args=(hub, parse_line, a.device, port_pattern, stop),
                      daemon=True).start()
-    server = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(hub, a.html))
+    server = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(hub, html, a.static))
     server.daemon_threads = True
     print(f"Bridge: http://localhost:{a.port}   (Ctrl-C to stop)", flush=True)
     try:
