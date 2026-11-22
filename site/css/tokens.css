@@ -1,0 +1,84 @@
+/* Design tokens: Hothouse Bass Multiband site.
+ * Style: "Color Field" (flat, bold, neon color panels). Layout follows "Signal Lab".
+ * Every stylesheet (site, studio, flasher) uses only these variables for color, type and spacing.
+ * Changing a value here restyles the whole site. Do not hard-code colors elsewhere. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../fonts/Archivo-Variable.woff2") format("woff2-variations"),
+       url("../fonts/Archivo-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/JetBrainsMono-Variable.woff2") format("woff2-variations"),
+       url("../fonts/JetBrainsMono-Variable.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces and text */
+  --ink: #0D0D0F;        /* page background, text on color panels */
+  --ink-2: #161619;      /* panels, chain box, pedal area */
+  --ink-3: #1F1F23;      /* raised elements (pedal body, inputs) */
+  --line: #2A2A30;       /* rules and borders (decorative only) */
+  --line-strong: #3A3A42;
+  --paper: #F3F2EC;      /* main text, light panels (editor popover) */
+  --mute: #8C8C94;       /* secondary text: AA on --ink and --ink-2 */
+
+  /* Effect color code: the same color for an effect everywhere
+   * (chain block, editor, pedal knob ring, feature tile, deep-dive panel). */
+  --fx-io: #00E5FF;      /* signal, input/output, master, primary actions */
+  --fx-xover: #9D7BFF;   /* crossover */
+  --fx-comp: #FFB000;    /* compressors */
+  --fx-loop: #B6FF3B;    /* FX loop */
+  --fx-oct: #FF3EA5;     /* octaver */
+  --fx-drive: #FF5A36;   /* drive, fuzz split */
+  --fx-neutral: #5A5A63; /* latency delay, detector, inactive wires */
+  --on-fx: var(--ink);   /* text on any effect color: always near-black */
+
+  /* States */
+  --state-off: #3A3A42;        /* switched off / bypassed block */
+  --state-muted-hatch: #2A2A30;/* muted by a setting: hatch color */
+  --ok: var(--fx-loop);
+  --warn: var(--fx-comp);
+  --err: var(--fx-drive);
+  --focus: var(--fx-io);
+
+  /* Type */
+  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --stretch-display: 112%;     /* headlines: font-weight 900 + this stretch */
+  --stretch-numbers: 120%;     /* big numbers */
+  --track-display: -0.035em;
+  --track-label: 0.12em;       /* mono uppercase eyebrows/labels */
+  --fs-body: 18px;
+  --fs-small: 15px;
+  --fs-label: 13px;
+  --fs-h1: clamp(64px, 11.4vw, 176px);
+  --fs-h2: clamp(48px, 7vw, 104px);
+  --fs-h3: clamp(32px, 3.6vw, 56px);
+  --fs-big-number: clamp(56px, 6vw, 96px);
+
+  /* Layout */
+  --max: 1440px;
+  --gut: clamp(16px, 4vw, 56px);
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --sp-6: 32px; --sp-7: 48px; --sp-8: 72px; --sp-9: 120px;
+  --radius: 0;           /* flat: square corners everywhere ... */
+  --radius-pedal: 14px;  /* ... except the pedal body and round knobs/LEDs */
+  --border: 2px;
+
+  /* Motion */
+  --t-fast: 150ms;
+  --t-med: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-med: 0ms; }
+}
