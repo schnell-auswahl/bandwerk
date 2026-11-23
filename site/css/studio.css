@@ -1,4 +1,4 @@
-/* Studio: the live signal chain, editor and pedal (site/js/studio/).
+/* Studio: the live signal chain and editor (site/js/studio/).
  * Everything is scoped under .studio and uses only the variables of tokens.css.
  * Works with and without base.css. */
 
@@ -206,68 +206,6 @@
 .studio .ed-note:empty { display: none; }
 .studio .st-editor :focus-visible { outline-color: var(--ink); }
 
-/* ---- pedal and knob panel */
-.studio .st-lower { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: var(--sp-5); align-items: start; }
-.studio .st-pedal { background: var(--ink-3); border: var(--border) solid var(--line-strong); border-radius: var(--radius-pedal); padding: var(--sp-5) var(--sp-5) var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-5); font-family: var(--mono); }
-.studio .pd-top { text-align: center; }
-.studio .pd-page { font: 700 var(--fs-label) var(--mono); letter-spacing: .3em; color: var(--pc); }
-.studio .pd-knobs { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4) var(--sp-2); }
-.studio .knob { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); text-align: center; --kc: var(--fx-io); }
-.studio .dial { position: relative; width: 62px; height: 62px; border-radius: 50%; background: var(--ink); border: 5px solid var(--kc); cursor: ns-resize; touch-action: none; }
-.studio .dial .ptr { position: absolute; inset: 0; transform: rotate(var(--a, 0deg)); }
-.studio .dial .ptr::after { content: ""; position: absolute; left: 50%; top: 3px; width: 4px; height: 19px; margin-left: -2px; background: var(--paper); }
-.studio .dial .mark { position: absolute; inset: -13px; transform: rotate(var(--sa, 0deg)); opacity: 0; }
-.studio .dial .mark::before { content: ""; position: absolute; left: 50%; top: 0; width: 10px; height: 10px; margin-left: -5px; background: var(--kc); border: 2px solid var(--paper); }
-.studio .knob.open .dial .mark { opacity: 1; }
-.studio .knob.open .dial { border-style: dashed; }
-.studio .knob.hl .dial { outline: 3px dashed var(--paper); outline-offset: 5px; }
-.studio .knob-in { position: absolute; top: 0; left: 50%; width: 62px; height: 62px; margin-left: -31px; opacity: 0; pointer-events: none; }
-.studio .knob:has(.knob-in:focus-visible) .dial { outline: 3px solid var(--focus); outline-offset: 5px; }
-.studio .kn { font-weight: 800; font-size: 12px; color: var(--kc); }
-.studio .kl { font-size: 11px; color: var(--mute); min-height: 1.4em; }
-.studio .pd-toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-4); }
-.studio .tog { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); font-size: 11px; }
-.studio .tog legend { font-weight: 800; color: var(--kc); text-align: center; font-size: 11px; padding: 0 0 var(--sp-1); width: 100%; }
-.studio .lever { position: relative; width: 22px; height: 42px; border: 2px solid var(--kc); }
-.studio .lever i { position: absolute; left: 3px; right: 3px; height: 12px; background: var(--kc); top: 3px; transition: top var(--t-fast); }
-.studio .lever[data-pos="1"] i { top: 13px; } .studio .lever[data-pos="2"] i { top: 23px; }
-.studio .tog-pos { display: flex; flex-direction: column; width: 100%; }
-.studio .tog-pos label { position: relative; display: block; cursor: pointer; }
-.studio .tog-pos input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: inherit; }
-.studio .tog-pos span { display: block; padding: 2px 4px; color: var(--mute); border: 1px solid transparent; }
-.studio .tog-pos input:checked + span { color: var(--ink); background: var(--kc); font-weight: 800; }
-.studio .tog-pos label.raw span { border: 1px dashed var(--paper); color: var(--paper); }
-.studio .tog-pos input:focus-visible + span { outline: var(--border) solid var(--focus); }
-.studio .tog-note { font-size: 10px; color: var(--warn); min-height: 2.6em; text-align: center; }
-.studio .pd-feet { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); border-top: 1px solid var(--line); padding-top: var(--sp-4); }
-.studio .foot { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); text-align: center; }
-.studio .foot[data-f="0"] { --lc: var(--fx-oct); } .studio .foot[data-f="1"] { --lc: var(--fx-drive); }
-.studio .led { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--lc); background: color-mix(in srgb, var(--lc) calc(var(--b, 0) * 100%), var(--ink)); }
-.studio .fsw { width: 62px; height: 62px; border-radius: 50%; background: var(--paper); border: 7px solid var(--mute); padding: 0; touch-action: none; transition: transform var(--t-fast); }
-.studio .foot.down .fsw, .studio .foot.pdown .fsw { transform: translateY(2px) scale(.96); border-color: var(--line-strong); }
-.studio .fsw[aria-pressed="true"] { border-color: var(--lc); }
-.studio .fn { font-weight: 800; font-size: 11px; color: var(--lc); }
-.studio .fh { font-size: 10px; color: var(--mute); }
-.studio .st-pedal.ro .dial, .studio .st-pedal.ro .fsw { cursor: not-allowed; }
-
-.studio .st-kp { background: var(--ink-2); border: 1px solid var(--line); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
-.studio .kp-h { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); font: var(--fs-label) var(--mono); }
-.studio .kp-sub { color: var(--mute); }
-.studio .kp-pages { gap: var(--sp-2); }
-.studio .kp-pages span { color: var(--pc); border-color: var(--pc); padding: var(--sp-2) var(--sp-3); margin: 0; }
-.studio .kp-pages input:checked + span { background: var(--pc); color: var(--on-fx); border-color: var(--pc); }
-.studio .kp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
-.studio .kcard { text-align: left; background: var(--ink); border: 1px solid var(--line); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-1); font-family: var(--mono); min-width: 0; color: var(--paper); }
-.studio .kcard:hover { border-color: var(--line-strong); }
-.studio .kcard[aria-pressed="true"] { border: var(--border) dashed var(--paper); }
-.studio .kc-n { font-size: 11px; letter-spacing: .1em; color: var(--mute); }
-.studio .kc-v { font: 800 18px var(--mono); color: var(--kc); overflow-wrap: anywhere; }
-.studio .kc-s { font-size: 11px; color: var(--mute); }
-.studio .kc-s::before { content: "● "; color: var(--ok); }
-.studio .kcard.open .kc-s { color: var(--warn); }
-.studio .kcard.open .kc-s::before { content: "◌ "; color: var(--warn); }
-.studio .kp-status { font: var(--fs-label) / 1.5 var(--mono); color: var(--mute); }
-
 /* ---- presets */
 .studio .st-presets { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
 .studio .st-file { position: relative; cursor: pointer; }
@@ -298,8 +236,6 @@
 
 /* ---- narrow screens */
 @media (max-width: 1000px) {
-  .studio .st-lower { grid-template-columns: 1fr; }
-  .studio .st-pedal { max-width: 460px; width: 100%; margin: 0 auto; }
   .studio .adv-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
@@ -308,10 +244,5 @@
   .studio .st-sp { flex-basis: 100%; height: 0; }
   .studio .ed-body { grid-template-columns: 1fr; }
   .studio .ed-g canvas { height: 130px; }
-  .studio .kp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .studio .st-pedal { padding: var(--sp-4) var(--sp-3) var(--sp-5); gap: var(--sp-4); }
-  .studio .dial, .studio .knob-in { width: 52px; height: 52px; }
-  .studio .knob-in { margin-left: -26px; }
-  .studio .fsw { width: 54px; height: 54px; }
   .studio .adv-det canvas { height: 240px; }
 }

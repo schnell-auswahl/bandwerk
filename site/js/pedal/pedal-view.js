@@ -69,7 +69,7 @@ function footSvg(i) {
     <circle class="pv-sw-hit" cx="${cx}" cy="${sy}" r="40"/>
     <circle class="pv-focus" cx="${cx}" cy="${sy}" r="39"/>
   </g>
-  <text class="pv-l pv-fl" x="${cx}" y="${sy + 49}" text-anchor="middle">${n} · ${label}</text>
+  <text class="pv-l pv-fl" x="${cx + 18}" y="${ly + 4}">${n} ${label}</text>
 </g>`;
 }
 
@@ -125,7 +125,7 @@ ${bandSwitch ? `<div class="pv-band" role="radiogroup" aria-label="Compressor ba
   let foot = new FootGestures(session, mode);
   let raf = 0, visible = true, dirty = true, destroyed = false;
   const touched = [0, 0, 0, 0, 0, 0];   // local preview of a dragged knob (value, until the pedal confirms)
-  const preview = [0, 0, 0, 0, 0, 0], previewT = [0, 0, 0, 0, 0, 0];
+  const preview = [0, 0, 0, 0, 0, 0], previewT = [-1e9, -1e9, -1e9, -1e9, -1e9, -1e9];
   const lastSw = [null, null, null], swSince = [0, 0, 0];
 
   function state() { return session.view(); }
@@ -178,7 +178,7 @@ ${bandSwitch ? `<div class="pv-band" role="radiogroup" aria-label="Compressor ba
       set(k.mark, 'visibility', mark ? 'visible' : 'hidden', c);
       text(k.l, m.label, c, 'l');
       text(k.v, m.text, c, 'v');
-      set(k.v, 'font-size', valueFontSize(m.text).toFixed(1), c);
+      style(k.v, 'font-size', valueFontSize(m.text).toFixed(1) + 'px', c);
       const pm = Math.round(m.stored * 1000);
       set(k.el, 'aria-valuenow', pm, c);
       const pickup = mark ? ', not picked up: turn the knob to the marker' : '';
