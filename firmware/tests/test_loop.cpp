@@ -375,3 +375,32 @@ TEST(loop_fine_trim_is_plus_minus_1_ms_with_a_center_dead_band) {
   CHECK(LoopFineMs(0.6f) > 0.0f && LoopFineMs(0.4f) < 0.0f);
   CHECK_NEAR(LoopLevelDb(0.5f), 0.0, 1e-6);
 }
+
+// The sliced analysis (used by the virtual pedal inside an audio callback)
+// gives exactly the result of Analyze(), whatever the slice size.
+TEST(sliced_probe_analysis_equals_the_whole_analysis) {
+  for (int slice : {1, 7, 16, 1024}) {
+    LoopProbe p;
+    LoopDelay d;
+    d.Init(kFs, 61.37f);
+    p.Start();
+    float send = 0.0f;
+    unsigned seed = 3;
+    while (p.running()) {
+      seed = seed * 1664525u + 1013904223u;
+      const float n = 0.002f * ((seed >> 8 & 0xffff) / 32768.0f - 1.0f);
+      send = p.Process(-0.7f * d.Process(send) + n);
+    }
+    const LoopProbeResult whole = p.Analyze();
+    LoopProbe::Analysis a;
+    a.Begin(p);
+    int steps = 0;
+    while (!a.Step(p, slice)) ++steps;
+    const LoopProbeResult s = a.Result(p);
+    CHECK(steps >= (1024 / slice) - 1);
+    CHECK(s.found == whole.found && s.inverted == whole.inverted);
+    CHECK(s.lag == whole.lag && s.coef == whole.coef && s.gain_db == whole.gain_db &&
+          s.return_rms_db == whole.return_rms_db);
+    CHECK(whole.found && whole.inverted);
+  }
+}

@@ -14,6 +14,9 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  EMSDK_VERSION: '7.0.1'   # keep in step with ci.yml
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -55,6 +58,17 @@ jobs:
         env:
           COMMIT: ${{ github.sha }}
         run: tools/site_firmware.sh
+
+      # The firmware's DSP and UI logic as WebAssembly for the virtual pedal on the site
+      # (site/wasm/ is not committed).
+      - name: Install Emscripten ${{ env.EMSDK_VERSION }}
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build the virtual pedal (WebAssembly)
+        run: make -C firmware/virtual
 
       - uses: actions/configure-pages@v5
 

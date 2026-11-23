@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Virtual pedal (dev) · Hothouse Bass Multiband</title>
+<link rel="stylesheet" href="css/tokens.css">
+<style>
+  html, body { margin: 0; background: var(--ink); color: var(--paper); }
+  body { font-family: var(--sans); font-size: var(--fs-small); }
+  main { max-width: 1100px; margin: 0 auto; padding: var(--sp-6) var(--gut) var(--sp-8); display: grid; gap: var(--sp-5); }
+  h1 { font: 900 var(--fs-h3) / .95 var(--sans); font-stretch: var(--stretch-display); letter-spacing: var(--track-display); margin: 0; }
+  h2 { font: 600 var(--fs-label) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; margin: 0 0 var(--sp-3); }
+  p { margin: 0; color: var(--mute); max-width: 70ch; }
+  section { background: var(--ink-2); padding: var(--sp-4); display: grid; gap: var(--sp-3); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+  button, select, input[type=text] { font: 600 var(--fs-small) var(--mono); background: var(--ink-3); color: var(--paper); border: 1px solid var(--line-strong); padding: var(--sp-2) var(--sp-3); border-radius: 0; }
+  button[aria-pressed=true] { background: var(--fx-io); color: var(--on-fx); border-color: var(--fx-io); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  label { display: inline-flex; gap: var(--sp-2); align-items: center; font-family: var(--mono); }
+  input[type=range] { width: 160px; accent-color: var(--fx-io); }
+  .fx-loop h2 { color: var(--fx-loop); }
+  pre { margin: 0; font: var(--fs-label) / 1.4 var(--mono); white-space: pre-wrap; word-break: break-all; color: var(--paper); max-height: 260px; overflow: auto; }
+  .big { font: 800 var(--fs-h3) / 1 var(--mono); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-3); }
+  .stat span { display: block; color: var(--mute); font: var(--fs-label) var(--mono); }
+  #error { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Virtual pedal</h1>
+    <p>Development page for the firmware compiled to WebAssembly (docs/VIRTUAL.md). Not linked from the site. Pick a bass loop, press Play, and the audio runs through the real DSP and UI logic in an AudioWorklet.</p>
+  </header>
+  <p id="error" role="alert"></p>
+
+  <section aria-labelledby="h-src">
+    <h2 id="h-src">Source</h2>
+    <div class="row">
+      <label>File <input type="file" id="file" accept="audio/*"></label>
+      <button id="dev-loop" type="button">Use audio/dev/BassExample.wav</button>
+      <button id="play" type="button" aria-pressed="false" disabled>Play</button>
+      <label><input type="checkbox" id="direct"> Direct (skip the pedal)</label>
+    </div>
+    <div class="grid">
+      <div class="stat"><span>input level (peak)</span><b class="big" id="lvl-in">-</b></div>
+      <div class="stat"><span>output level (peak)</span><b class="big" id="lvl-out">-</b></div>
+      <div class="stat"><span>loop latency measured</span><b class="big" id="lat">-</b></div>
+      <div class="stat"><span>audio thread load (avg / peak)</span><b class="big" id="cpu">-</b></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-pedal">
+    <h2 id="h-pedal">Pedal</h2>
+    <div class="row">
+      <button type="button" id="b-oct" aria-pressed="false">oct</button>
+      <button type="button" id="b-drv" aria-pressed="false">drv</button>
+      <button type="button" id="b-byp" aria-pressed="false">byp</button>
+      <label>drive type
+        <select id="dtype"><option value="od">od</option><option value="dist" selected>dist</option><option value="fuzz">fuzz</option></select>
+      </label>
+      <label>threshold (both bands) <input type="range" id="thr" min="0" max="1000" value="500"></label>
+    </div>
+    <div class="row">
+      <span>S2 (loop mode):</span>
+      <button type="button" data-s2="0" aria-pressed="true">Bridge</button>
+      <button type="button" data-s2="1" aria-pressed="false">Loop</button>
+      <button type="button" data-s2="2" aria-pressed="false">Loop inv</button>
+      <button type="button" id="remeasure">Bridge &rarr; Loop (measure again)</button>
+    </div>
+  </section>
+
+  <section class="fx-loop" aria-labelledby="h-fx">
+    <h2 id="h-fx">FX loop pedal</h2>
+    <div class="row">
+      <label>pedal
+        <select id="fx-type"><option value="drive">TS-style overdrive (1.0 ms)</option><option value="chorus">Chorus (1.8 ms)</option></select>
+      </label>
+      <label><input type="checkbox" id="fx-on"> on</label>
+      <label><span id="fx-n0">drive</span> <input type="range" id="fx-p0" min="0" max="1000" value="500"></label>
+      <label><span id="fx-n1">tone</span> <input type="range" id="fx-p1" min="0" max="1000" value="500"></label>
+      <label><span id="fx-n2">level</span> <input type="range" id="fx-p2" min="0" max="1000" value="500"></label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cmd">
+    <h2 id="h-cmd">Commands and telemetry</h2>
+    <form class="row" id="cmd-form"><input type="text" id="cmd" size="40" placeholder="hello, set master 700, ..." autocomplete="off" aria-label="Command"><button type="submit">Send</button></form>
+    <pre id="replies" aria-live="polite"></pre>
+    <pre id="telemetry" aria-label="Latest telemetry lines"></pre>
+  </section>
+</main>
+<script type="module" src="js/audio/virtual-page.js"></script>
+</body>
+</html>

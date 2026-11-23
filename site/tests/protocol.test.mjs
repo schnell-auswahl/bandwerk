@@ -1,12 +1,12 @@
 // Telemetry parser (port of tools/bm_telemetry.py), line reassembly, command
 // builders and the command queue. Fixtures are built from the firmware's own
-// format strings (bass_multiband.cpp) and from tools/fake_pedal.py lines.
+// format strings (firmware/ui/telemetry.h) and from tools/fake_pedal.py lines.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseLine, parseHello, LineSplitter, cmd, switchCmds, footCmds, footHoldCmds, cmdKey, CommandQueue, M_LEVELS } from '../js/studio/protocol.js';
 
-const cpp = readFileSync(new URL('../../firmware/bass_multiband.cpp', import.meta.url), 'utf8');
+const cpp = readFileSync(new URL('../../firmware/ui/telemetry.h', import.meta.url), 'utf8');
 // C string literal pieces of a printf format that starts with `prefix`
 function cFormat(prefix) {
   const i = cpp.indexOf('"' + prefix);
@@ -23,7 +23,7 @@ function cFormat(prefix) {
 // fills %d with the given numbers (in order), %% with %
 const fill = (fmt, nums) => { let k = 0; return fmt.replace(/%%|%d/g, (m) => (m === '%%' ? '%' : String(nums[k++]))); };
 
-test('[L] and [M] from the PrintLiveFrame format', () => {
+test('[L] and [M] from the firmware format', () => {
   const [l, m] = cFormat('[L] in=').split('\n');
   const nl = (l.match(/%d/g) || []).length, nm = (m.match(/%d/g) || []).length;
   const L = parseLine(fill(l, Array.from({ length: nl }, (_, i) => -300 + i)));
@@ -38,7 +38,7 @@ test('[L] and [M] from the PrintLiveFrame format', () => {
   assert.equal(Mm.og, vals[15]); assert.equal(Mm.dl, vals[16] / 100); assert.equal(Mm.el, vals[17]);
 });
 
-test('[S] from BM_STATE_FMT', () => {
+test('[S] from the firmware format', () => {
   const s = cFormat('[S] pg=').split('\n')[0];
   const nums = [1, 2, 0, 2, 1, 0, 1, 10, 1, ...Array.from({ length: 22 }, (_, i) => i * 40)];
   const S = parseLine(fill(s, nums));
