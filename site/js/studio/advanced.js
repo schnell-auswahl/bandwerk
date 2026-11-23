@@ -52,7 +52,7 @@ export class Advanced {
     const S = store.SYS, rows = [
       ['Connection', kind], ['Firmware', hello ? `${hello.fw} (protocol ${hello.proto}, ${hello.build}, ${hello.app})` : '–'],
       ['Sample rate', S ? (S.sr / 1000) + ' kHz, block ' + S.block : '–'],
-      ['CPU', S ? `${S.cpu_avg.toFixed(1)} % (max ${S.cpu_max.toFixed(1)} %)` : '–'],
+      ['CPU', S && (kind === 'serial' || kind === 'bridge') ? `${S.cpu_avg.toFixed(1)} % (max ${S.cpu_max.toFixed(1)} %)` : (S ? 'runs on your computer' : '–')],
       ['Main loop', S ? S.loops + ' /s' : '–'],
       ['Loop latency', S && S.lat > 0 ? S.lat.toFixed(2) + ' samples' : 'not measured'],
     ];

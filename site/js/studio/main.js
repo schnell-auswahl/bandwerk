@@ -220,7 +220,9 @@ class Studio extends EventTarget {
     if (st.textContent !== text) st.textContent = text;
     this.$('[data-dot]').className = 'st-dot ' + cls;
     this.$('[data-fw]').textContent = ses.hello && (kind === 'serial' || kind === 'bridge') ? 'fw ' + ses.hello.fw : '';
-    this.$('[data-meters]').innerHTML = L ? `IN <b>${fmtLvl(L.in)}</b> · OUT <b>${fmtLvl(L.out)}</b> dBFS${SYS ? ` · CPU <b>${SYS.cpu_avg.toFixed(0)} %</b>` : ''}` : '';
+    // CPU is the pedal's own load: only a real pedal has one (the virtual pedal runs on the computer).
+    const showCpu = SYS && (kind === 'serial' || kind === 'bridge');
+    this.$('[data-meters]').innerHTML = L ? `IN <b>${fmtLvl(L.in)}</b> · OUT <b>${fmtLvl(L.out)}</b> dBFS${showCpu ? ` · CPU <b>${SYS.cpu_avg.toFixed(0)} %</b>` : ''}` : '';
     if (this.adv.isOpen) this.adv.renderSys(this.store, ses.hello, kind);
   }
   msg(html, kind) {

@@ -155,7 +155,8 @@ ${bandSwitch ? `<div class="pv-band" role="radiogroup" aria-label="Compressor ba
     const pc = pageRect.__c || (pageRect.__c = {});
     set(pageRect, 'width', w, pc); set(pageRect, 'x', 400 - w, pc);
     pageText.setAttribute('x', 400 - w / 2);
-    pageRect.style.setProperty('fill', p >= 0 && accent ? ac : `var(--fx-${pfx})`);
+    // A copy (or a hero-type pedal with its own title, e.g. the crossover section) wears its accent.
+    pageRect.style.setProperty('fill', (p >= 0 || title) && accent ? ac : `var(--fx-${pfx})`);
 
     // knobs
     const models = knobModels(S, pi);

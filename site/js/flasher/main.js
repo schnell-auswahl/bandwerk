@@ -219,11 +219,13 @@ export function mountFlasher(root, options = {}) {
   async function restartIntoDfu() {
     set({ enteringDfu: true, notice: null });
     try {
-      if (options.enterBootloader) {
-        const ok = await options.enterBootloader();
-        if (!ok) throw new Error("The pedal did not confirm the restart.");
-      } else {
+      // options.enterBootloader returns true/false when the page already talks to the pedal,
+      // or null/undefined when it does not: then the installer opens the serial port itself.
+      const ok = options.enterBootloader ? await options.enterBootloader() : null;
+      if (ok === null || ok === undefined) {
         await requestDfuOverSerial(env.serial, { all: S.serialAll });
+      } else if (!ok) {
+        throw new Error("The pedal did not confirm the restart.");
       }
       set({ enteringDfu: false, notice: { kind: "ok", text: "The pedal is restarting into update mode. Now click “Select pedal” and choose “Daisy Bootloader”." } });
     } catch (e) {
@@ -370,7 +372,7 @@ export function mountFlasher(root, options = {}) {
         h("li", null, h("b", null, "Plug the pedal in with USB"), " and power it up. Close the Studio tab or any serial monitor that uses it."),
         h("li", null, h("b", null, "Restart it into update mode. "),
           canSerial ? h("span", null, h("button", { class: "fl-btn", disabled: S.enteringDfu, onclick: restartIntoDfu }, S.enteringDfu ? "Restarting…" : "Restart pedal into update mode"),
-            options.enterBootloader ? null : h("span", { class: "fl-small" }, " Asks for the pedal's serial port. ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); S.serialAll = true; restartIntoDfu(); } }, "Pedal not listed?"))) : null,
+            h("span", { class: "fl-small" }, " Asks for the pedal's serial port if it is not connected yet. ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); S.serialAll = true; restartIntoDfu(); } }, "Pedal not listed?"))) : null,
           h("p", { class: "fl-small" }, canSerial ? "Or do it by hand: " : "Do it by hand: ", "hold ", h("b", null, "FS1 + FS2 for 2 seconds"), " until the LEDs alternate. The pedal then waits for the installer as long as you like. If you power-cycle instead, the Daisy bootloader only waits 2 seconds.")),
         h("li", null, h("b", null, "Select the pedal. "), "Click the button and choose ", h("b", null, "“Daisy Bootloader”"), " in the browser's dialog. The installation starts right away."),
       ];

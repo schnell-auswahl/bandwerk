@@ -205,8 +205,8 @@ async function mountAll() {
       const mod = await import("./flasher/main.js");
       flasherRoot.replaceChildren();
       mod.mountFlasher(flasherRoot, {
-        // Uses the session's open connection to restart the pedal into update mode.
-        enterBootloader: () => (session ? session.enterBootloader() : null),
+        // Connected studio: restart through it. Otherwise null: the installer opens the port itself.
+        enterBootloader: () => (session && session.connected ? session.enterBootloader() : null),
         onFlashed: () => highlightConnect(),
       });
     } catch (err) {

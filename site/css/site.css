@@ -182,112 +182,12 @@
   letter-spacing: 0.1em;
 }
 
-/* ------------------------------------------------------------------ idea */
-.idea__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: var(--sp-7);
-  margin-bottom: var(--sp-7);
-}
-.idea__text p { font-size: 20px; font-weight: 500; }
-.idea__text p + p { margin-top: var(--sp-4); }
-.idea__facts { display: grid; gap: var(--sp-4); }
-.idea__facts li { border-top: 3px solid currentColor; padding-top: var(--sp-3); font-size: 16px; }
-.idea__facts li b {
-  display: block;
-  font-family: var(--mono);
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-  letter-spacing: var(--track-label);
-  margin-bottom: var(--sp-1);
-}
-.idea__facts li { color: var(--paper); border-top-color: var(--c); }
-.idea__facts li b { color: var(--c); }
-.fx-comp-text { --c: var(--fx-comp); }
-.fx-drive-text { --c: var(--fx-drive); }
-.fx-io-text { --c: var(--fx-io); }
-
-.lanes-fig { margin: 0; }
-.lanes { width: 100%; height: auto; }
-.lanes text { font-family: var(--mono); }
-.lanes .t { font-size: 18px; font-weight: 800; fill: var(--on-fx); letter-spacing: 0.03em; }
-.lanes .s { font-size: 13px; font-weight: 600; fill: var(--on-fx); }
-.lanes .t--light, .lanes .s--light { fill: var(--paper); }
-.lanes .dashed { fill: none; stroke-width: 3; stroke-dasharray: 10 7; }
-.lanes .lane-label { font-size: 13px; font-weight: 700; fill: var(--mute); letter-spacing: 0.08em; }
-.lanes--tall { display: none; max-width: 420px; margin: 0 auto; }
-.lanes-fig figcaption,
-.curve-box figcaption,
 .wire-card figcaption {
   margin-top: var(--sp-4);
   font-family: var(--mono);
   font-size: var(--fs-label);
   color: var(--mute);
   max-width: 90ch;
-}
-
-/* ------------------------------------------------------------------ feature tiles */
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  max-width: var(--max);
-  margin: 0 auto;
-}
-.tile { background: var(--c); color: var(--on-fx); }
-.tile--wide { grid-column: span 2; }
-.tile a {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 400px;
-  padding: var(--sp-6) var(--sp-6) var(--sp-7);
-  text-decoration: none;
-  transition: background-color var(--t-fast);
-}
-.tile a:hover .tile__h { text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 0.12em; }
-.tile a:focus-visible { outline-offset: -6px; }
-.tile__n { font-family: var(--mono); font-size: 14px; font-weight: 800; text-transform: uppercase; }
-.tile__big {
-  position: absolute;
-  top: var(--sp-5);
-  right: var(--sp-6);
-  font-weight: 900;
-  font-stretch: var(--stretch-numbers);
-  font-size: var(--fs-big-number);
-  letter-spacing: -0.05em;
-  line-height: 0.85;
-  text-align: right;
-}
-.tile--wide .tile__big { font-size: clamp(90px, 11vw, 180px); }
-.tile__big small {
-  display: block;
-  margin-top: var(--sp-2);
-  font-family: var(--mono);
-  font-size: var(--fs-label);
-  font-weight: 800;
-  font-stretch: 100%;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.tile__body { margin-top: auto; padding-top: var(--sp-9); }
-.tile__h {
-  display: block;
-  font-weight: 900;
-  font-stretch: var(--stretch-display);
-  letter-spacing: var(--track-display);
-  line-height: 0.92;
-  font-size: var(--fs-h3);
-  margin-bottom: var(--sp-4);
-}
-.tile__p { display: block; max-width: 34ch; font-size: 17px; font-weight: 500; }
-.tile-curve {
-  position: absolute;
-  right: var(--sp-6);
-  bottom: var(--sp-7);
-  width: 38%;
-  height: auto;
-  color: var(--on-fx);
 }
 
 /* ------------------------------------------------------------------ mount points (studio, flasher) */
@@ -341,37 +241,6 @@
   font-weight: 600;
 }
 .deep__beta .chip { flex: none; }
-.deep__nums {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: var(--sp-8) 0;
-  border-top: 3px solid var(--on-fx);
-  border-bottom: 3px solid var(--on-fx);
-}
-.deep__nums div {
-  display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  gap: var(--sp-2);
-  padding: var(--sp-5) 0 var(--sp-5) var(--sp-5);
-  border-left: 3px solid var(--on-fx);
-}
-.deep__nums div:first-child { border-left: 0; padding-left: 0; }
-.deep__nums dd {
-  margin: 0;
-  font-weight: 900;
-  font-stretch: 115%;
-  font-size: clamp(36px, 4.4vw, 70px);
-  letter-spacing: -0.045em;
-  line-height: 1;
-}
-.deep__nums dt { font-family: var(--mono); font-size: var(--fs-label); font-weight: 800; text-transform: uppercase; }
-.deep__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: var(--sp-8);
-  align-items: start;
-}
 .deep h3 {
   font-size: clamp(24px, 2.2vw, 32px);
   margin: var(--sp-7) 0 var(--sp-4);
@@ -379,7 +248,6 @@
 .deep__text > h3:first-child { margin-top: 0; }
 .deep__text p { font-size: 17px; font-weight: 500; max-width: 62ch; }
 .deep__text p + p { margin-top: var(--sp-3); }
-.deep__side { display: grid; gap: var(--sp-6); }
 .deep a { font-weight: 800; }
 p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: var(--fs-label); font-weight: 600; max-width: 70ch; }
 
@@ -402,17 +270,8 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
 .deep tbody td:last-child { font-family: var(--mono); font-size: 14px; }
 
 /* plots */
-.curve-box { margin: 0; background: var(--ink); color: var(--paper); padding: var(--sp-5); }
-.curve-box figcaption { margin-top: var(--sp-3); }
+
 .plot { width: 100%; height: auto; font-family: var(--mono); overflow: visible; }
-.pl-grid { stroke: var(--line); stroke-width: 1; }
-.pl-axis { stroke: var(--line-strong); stroke-width: 1.5; }
-.pl-tick { fill: var(--mute); font-size: 13px; }
-.pl-unit { fill: var(--mute); font-size: 12px; font-weight: 700; }
-.pl-label { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; }
-.pl-curve, .pl-ref-curve { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.pl-ref { stroke: var(--mute); stroke-width: 1.5; stroke-dasharray: 4 5; }
-.pl-band { opacity: 0.16; }
 
 /* tips */
 .tips { border-top: 3px solid var(--on-fx); padding-top: var(--sp-4); }
@@ -452,13 +311,6 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.pages-table { table-layout: fixed; min-width: 560px; }
-.pages-table thead th:first-child { width: 22%; }
-.pages-table td.global { color: var(--fx-io); font-weight: 800; }
-.pages-table td.global--xover { color: var(--fx-xover); }
-.pages-table td.global span { color: var(--mute); font-weight: 500; }
-
-.scroll-hint { display: none; margin: 0 0 var(--sp-2); font-family: var(--mono); font-size: 12px; color: var(--mute); }
 
 .pg {
   display: inline-block;
@@ -663,16 +515,9 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
   html:not(.js) .site-menu a { font-size: var(--fs-small); border: 0; }
 
   .hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr); gap: var(--sp-6); }
-  .deep__body { grid-template-columns: minmax(0, 1fr); }
-  .deep__side { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  .deep__side .tips { grid-column: 1 / -1; }
   .cables__grid { grid-template-columns: minmax(0, 1fr); }
   .dev__grid { grid-template-columns: minmax(0, 1fr); }
   .foot-grid { grid-template-columns: 1fr 1fr; }
-}
-
-@media (min-width: 761px) {
-  .deep__nums dd { white-space: nowrap; }
 }
 
 @media (max-width: 760px) {
@@ -693,24 +538,10 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
   .stats div:first-child { border-top: 0; }
   .stats div:nth-child(2) { border-top: 0; }
   .stats div:last-child { grid-column: 1 / -1; }
-  .idea__grid { grid-template-columns: 1fr; gap: var(--sp-6); }
-  .idea__text p { font-size: 18px; }
-  .lanes--wide { display: none; }
-  .lanes--tall { display: block; }
-  .tiles { grid-template-columns: minmax(0, 1fr); }
-  .tile--wide { grid-column: auto; }
-  .tile a { min-height: 300px; padding: var(--sp-5); }
-  .tile__big { right: var(--sp-5); top: var(--sp-5); }
-  .tile-curve { display: none; }
-  .tile__body { padding-top: var(--sp-8); }
   .mount-placeholder { padding: var(--sp-5); min-height: 220px; }
   .deep { padding: var(--sp-8) 0; }
   .deep__lede { justify-self: start; font-size: 19px; }
   .deep__beta { justify-self: start; }
-  .deep__nums { grid-template-columns: repeat(2, 1fr); margin: var(--sp-7) 0; }
-  .deep__nums div:nth-child(3) { border-left: 0; padding-left: 0; border-top: 3px solid var(--on-fx); }
-  .deep__nums div:nth-child(4) { border-top: 3px solid var(--on-fx); }
-  .deep__side { grid-template-columns: minmax(0, 1fr); }
   .deep table { font-size: 15px; }
   /* stacked rows: control + parameter on top, the other columns labelled below */
   .deep thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -731,8 +562,6 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
     letter-spacing: 0.06em;
     font-size: 11px;
   }
-  .scroll-hint { display: block; }
-  .curve-box { padding: var(--sp-3); }
   .guide__grid { grid-template-columns: minmax(0, 1fr); }
   .guide__block { padding: var(--sp-5) var(--sp-4); }
   .grid-table { font-size: 14px; }
@@ -757,7 +586,6 @@ p.note, .note { margin-top: var(--sp-4); font-family: var(--mono); font-size: va
   .logo__text { font-size: 14px; }
   .nav-toggle__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .nav-toggle { padding: 0 var(--sp-3); min-width: 44px; justify-content: center; }
-  .pages-table small { display: none; }
 }
 
 /* The landing page explains the three install steps itself (big numbers above the installer),
