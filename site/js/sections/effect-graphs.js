@@ -132,9 +132,9 @@ function compPanels() {
       draw(g, w, h, env) {
         const r = rect(w, h, 38, 8, 12, 24);
         drawComp(g, env.C, r, env.s, env.store, null);
-        text(g, env.C, 'input level, dBFS  (dot = live level and gain; above the dashed line = lifted)', r.x + r.w / 2, r.y + r.h + 20, env.C.mute, 10, 'center');
+        text(g, env.C, 'input level, dBFS', r.x + r.w / 2, r.y + r.h + 20, env.C.mute, 10, 'center');
       },
-      read: ({ s }) => [0, 1].map((b) => { const p = compParams(s.pm, b); return `${b ? 'LOW ' : 'HIGH'} ${p.thr.toFixed(0).replace('-', MINUS)} dB · ${p.ratio.toFixed(1)}:1 · ${Math.round(p.rel)} ms · wet ${Math.round(p.dw * 100)} % · makeup ${fmtDb(makeupDb(p.thr, p.ratio))}`; }).join('\n'),
+      read: ({ s }) => 'Dot = live level and gain; above the dashed line the signal is lifted.\n' + [0, 1].map((b) => { const p = compParams(s.pm, b); return `${b ? 'LOW ' : 'HIGH'} ${p.thr.toFixed(0).replace('-', MINUS)} dB · ${p.ratio.toFixed(1)}:1 · ${Math.round(p.rel)} ms · wet ${Math.round(p.dw * 100)} % · makeup ${fmtDb(makeupDb(p.thr, p.ratio))}`; }).join('\n'),
     },
     {
       id: 'gr', title: 'Gain reduction now', h: 76,
