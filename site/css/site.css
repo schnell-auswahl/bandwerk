@@ -146,7 +146,7 @@
 }
 .status-note .chip { color: var(--fx-comp); flex: none; }
 .hero__pedal { margin: 0; justify-self: center; width: min(100%, 420px); }
-.hero__pedal img { width: 100%; }
+.hero__pedal img, .hero__pedal .pv-svg { width: 100%; }
 .hero__player { margin-top: var(--sp-5); text-align: left; }
 
 .stats {

@@ -1,0 +1,56 @@
+/* The interactive pedal (js/pedal/pedal-view.js). Everything is scoped under .pedal-view; tokens only. */
+.pedal-view { display: block; width: 100%; --kc: var(--fx-io); }
+.pedal-view .pv-wrap { display: flex; flex-direction: column; gap: var(--sp-3); align-items: center; }
+.pedal-view .pv-svg { display: block; width: 100%; height: auto; max-width: 440px; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.pedal-view text { font-family: var(--mono); font-weight: 700; pointer-events: none; }
+.pedal-view .pv-k { font-size: 15px; font-weight: 800; fill: var(--kc); }
+.pedal-view .pv-l { font-size: 12px; fill: var(--mute); letter-spacing: .06em; }
+.pedal-view .pv-v { font-size: 12px; fill: var(--paper); }
+.pedal-view .pv-h { font-size: 13px; fill: var(--paper); letter-spacing: .14em; }
+.pedal-view .pv-fl { font-size: 10px; }
+.pedal-view .pv-body { fill: var(--ink-3); stroke: var(--line-strong); stroke-width: 3; }
+.pedal-view .pv-rule { stroke: var(--line-strong); stroke-width: 2; }
+.pedal-view .pv-page { fill: var(--fx-drive); }
+.pedal-view .pv-page-t { fill: var(--on-fx); }
+
+.pedal-view .pv-knob { --kc: var(--fx-io); outline: none; transition: opacity var(--t-fast, .15s); }
+.pedal-view .pv-track { fill: none; stroke: var(--line-strong); stroke-width: 4; }
+.pedal-view .pv-arc { fill: none; stroke: var(--kc); stroke-width: 4; }
+.pedal-view .pv-cap { fill: var(--ink); stroke: var(--kc); stroke-width: 7; }
+.pedal-view .pv-open .pv-cap, .pedal-view .pv-knob.is-open .pv-cap { stroke-dasharray: 7 5; }
+.pedal-view .pv-ptr { stroke: var(--paper); stroke-width: 5; stroke-linecap: round; }
+.pedal-view .pv-mark { fill: var(--paper); stroke: var(--ink); stroke-width: 2; }
+.pedal-view .pv-hit { fill: transparent; cursor: ns-resize; touch-action: none; }
+.pedal-view .pv-focus { fill: none; stroke: var(--focus); stroke-width: 3; opacity: 0; pointer-events: none; }
+.pedal-view .pv-knob:focus-visible .pv-focus, .pedal-view .pv-sw:focus-visible .pv-focus { opacity: 1; }
+.pedal-view .pv-knob.is-dim { opacity: .3; }
+.pedal-view .pv-knob.is-hl .pv-focus { opacity: 1; stroke: var(--paper); stroke-dasharray: 6 5; }
+.pedal-view .pv-knob.is-drag .pv-v { fill: var(--kc); }
+
+.pedal-view .pv-tbox { fill: var(--ink); stroke: var(--kc); stroke-width: 3; }
+.pedal-view .pv-lever { fill: var(--kc); transition: y .12s; }
+.pedal-view .pv-eff { fill: none; stroke: var(--paper); stroke-width: 2; stroke-dasharray: 3 2; }
+.pedal-view .pv-toggle .pv-k { fill: var(--kc); }
+.pedal-view .pv-pos { fill: transparent; stroke: none; cursor: pointer; outline: none; }
+.pedal-view .pv-pos:hover { fill: color-mix(in srgb, var(--kc) 14%, transparent); }
+.pedal-view .pv-pos:focus-visible { stroke: var(--focus); stroke-width: 3; }
+
+.pedal-view .pv-led { fill: var(--ink); stroke: var(--lc); stroke-width: 3; }
+.pedal-view .pv-led-on, .pedal-view .pv-glow { fill: var(--lc); transition: opacity .09s linear; pointer-events: none; }
+.pedal-view .pv-sw { outline: none; }
+.pedal-view .pv-sw-cap { fill: var(--paper); stroke: var(--mute); stroke-width: 7; transition: transform var(--t-fast, .15s); transform-box: fill-box; transform-origin: center; }
+.pedal-view .pv-foot.is-on .pv-sw-cap { stroke: var(--lc); }
+.pedal-view .pv-foot.is-down .pv-sw-cap { transform: translateY(2px) scale(.96); stroke: var(--line-strong); }
+.pedal-view .pv-sw-hit { fill: transparent; cursor: pointer; touch-action: none; }
+
+.pedal-view[data-control="off"] .pv-hit, .pedal-view[data-control="off"] .pv-pos, .pedal-view[data-control="off"] .pv-sw-hit { cursor: not-allowed; }
+
+.pedal-view .pv-band { display: flex; align-items: stretch; gap: 0; font-family: var(--mono); font-size: 12px; }
+.pedal-view .pv-band-l { color: var(--mute); padding: var(--sp-2) var(--sp-3) var(--sp-2) 0; letter-spacing: var(--track-label); text-transform: uppercase; align-self: center; }
+.pedal-view .pv-band button { font: inherit; font-weight: 700; color: var(--paper); background: var(--ink-2); border: 1px solid var(--line-strong); padding: var(--sp-2) var(--sp-3); min-height: 36px; cursor: pointer; margin-left: -1px; }
+.pedal-view .pv-band button[aria-checked="true"] { background: var(--fx-comp); color: var(--on-fx); border-color: var(--fx-comp); }
+.pedal-view .pv-band button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; position: relative; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pedal-view .pv-lever, .pedal-view .pv-sw-cap, .pedal-view .pv-led-on, .pedal-view .pv-glow, .pedal-view .pv-knob { transition: none; }
+}
