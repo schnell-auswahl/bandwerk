@@ -243,6 +243,14 @@ Behaviour by mode:
 
 Pure logic (geometry, which parameter a knob controls, labels, gesture mapping) is in `js/pedal/pedal-model.js` and tested in `site/tests/pedal.test.mjs`.
 
+## Effect sections
+
+The six effect sections of the landing page (`site/index.html`, `[data-fxs]`: crossover, comp, loop, oct, drive, mix) are mounted by `js/sections/sections.js` with the shared session. Each has a pedal copy locked to the effect's page (`mountPedal`), live graphs, a **Hear it** button and the old range tables in a `<details>` ("All ranges").
+
+- **Graphs** (`js/sections/effect-graphs.js`, `mountEffectGraphs(root, session, kind)`): canvas views on the session. Parameters come from `session.view()`, levels from the store's telemetry (this is all a real pedal gives); the scope and spectrum panels use `session.audio.taps` and are hidden or show a short note without it. They redraw at most once per animation frame (and at most 30 times a second) and only while on screen; taps are subscribed only then. The formulas are those of `studio/mapping.js` and `studio/graphs.js`; `js/sections/effect-math.js` adds the complex responses (the comb of a misaligned FX loop, the drive tone tilt), the loop alignment estimate, spectrum smoothing, the scope ring buffer and peak hold (tested in `site/tests/effect-math.test.mjs`).
+- **Virtual loop pedal panel** (`loop-fx-panel.js`, demo only): overdrive / chorus switch, on/off, three knobs, its simulated latency (`session.audio.loopFx`, `setLoopFx`). The alignment error shown in the FX loop section is estimated from the measured round trip, the delay the chain applies (`dl`) and the latency of the loop pedal at the time of the last measurement.
+- **Showcases** (`js/core/showcase.js`): one complete setting per section (the listed values on top of the factory values, never the master). `applyShowcase` starts the demo, selects loop and amp, sets the virtual loop pedal first (so a new measurement sees it), passes through Bridge when a loop mode is on (the pedal measures again), applies the preset and opens the page. `ShowcaseController` asks once before changing a real pedal (it saves 3 s after the last change), takes `session.snapshot()` before the first showcase and offers **Restore my settings** until restored (the virtual pedal's loop pedal, loop and amp are restored too). Tests: `site/tests/showcase.test.mjs`.
+
 ## Architecture
 
 All files are plain ES modules in `site/js/`, no build step:
@@ -255,6 +263,8 @@ All files are plain ES modules in `site/js/`, no build step:
 | `audio/virtual-pedal.js`, `virtual-pedal-worklet.js` | the WebAssembly pedal in an AudioWorklet (`docs/VIRTUAL.md`); `virtual-pedal-standin.js` is the JavaScript stand-in |
 | `pedal/pedal-view.js`, `pedal-model.js` | `mountPedal`: the interactive pedal (hero and page copies) and its pure logic |
 | `player/player-view.js` | `mountPlayer`: hero control and sticky bar |
+| `sections/sections.js`, `effect-graphs.js`, `effect-math.js`, `loop-fx-panel.js`, `showcase-ui.js` | the effect sections: mounting, live graphs, virtual loop pedal panel, Hear it buttons and confirmation |
+| `core/showcase.js` | showcase settings and `ShowcaseController` |
 | `studio/main.js` | `mountStudio`: chain, editor, Advanced, presets UI, connection bar |
 | `studio/mapping.js` | knob → physical value mappings (equal to `firmware/dsp/mapping.h`), parameter table, text formats |
 | `studio/protocol.js` | telemetry parser (port of `tools/bm_telemetry.py`), line reassembly, command builders, `CommandQueue` |

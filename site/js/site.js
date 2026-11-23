@@ -40,7 +40,7 @@ function initNav() {
     if (section) links.set(section, a);
   }
   // Sections without their own nav link count towards the previous one.
-  const extra = { idea: "features", cables: "guide", faq: "developers" };
+  const extra = { cables: "guide", faq: "developers" };
   for (const [id, target] of Object.entries(extra)) {
     const s = document.getElementById(id);
     const a = menu.querySelector(`a[href="#${target}"]`);
@@ -173,6 +173,18 @@ async function mountAll() {
       });
     } catch (err) {
       console.warn("Pedal not available (showing the picture):", err);
+    }
+  }
+
+  if (document.querySelector("[data-fxs]")) {
+    try {
+      if (!session) throw new Error("no session");
+      const mod = await import("./sections/sections.js");
+      const onKnobFocus = (k) => { const st = window.hothouse && window.hothouse.studio; if (st && st.hlKnob !== k) st.highlightKnob(k); };
+      await mod.mountEffectSections(document, session, { onKnobFocus });
+    } catch (err) {
+      console.warn("Effect sections not available (the text still reads fine):", err);
+      for (const box of document.querySelectorAll("[data-fxs-pedal], [data-fxs-graphs], [data-fxs-bar]")) box.hidden = true;
     }
   }
 
