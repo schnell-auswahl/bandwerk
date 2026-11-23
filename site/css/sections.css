@@ -124,3 +124,4 @@
   .fxg-stats { grid-template-columns: minmax(0, 1fr); }
   .fxg-fx__knobs { grid-template-columns: minmax(0, 1fr); }
 }
+.fxs__restore[hidden], .fxs__hear[hidden] { display: none !important; }

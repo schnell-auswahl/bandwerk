@@ -10,7 +10,7 @@
 // Redrawn at most once per animation frame (and at most 30 times a second), only while the mount is on screen.
 
 import {
-  PM, FS, clamp, fmtDb, fmtLvl, noteName, xoverHz, lr4Db, driveGainDb, driveToneDb, shape, bandMixDb, masterDb,
+  PM, FS, clamp, fmtDb, fmtLvl, noteName, xoverHz, lr4Db, driveGainDb, driveToneDb, shape, db2lin, bandMixDb, masterDb,
   subToneHz, compParams, makeupDb, DRIVE_NAMES, SOFT_CLIP_DB, fmtSigned,
 } from '../studio/mapping.js';
 import { grid, line, hist, histFrame, drawComp, drawXover, drawPitch, drawKnobCurve, drawDetail } from '../studio/graphs.js';
@@ -130,18 +130,9 @@ function compPanels() {
     {
       id: 'curves', title: 'Transfer curves and operating points', h: 290, legend: L3(bands),
       draw(g, w, h, env) {
-        const r = rect(w, h, 38, 8, 12, 22);
-        const side = Math.min(r.w, r.h); r.w = side; r.h = side;
+        const r = rect(w, h, 38, 8, 12, 24);
         drawComp(g, env.C, r, env.s, env.store, null);
-        text(g, env.C, 'input level, dBFS', r.x + side / 2, r.y + side + 16, env.C.mute, 10, 'center');
-        // the first value beside the plot area: how the dots work
-        const x = r.x + side + 12;
-        if (w - x > 90) {
-          text(g, env.C, 'dot = live level', x, r.y + 12, env.C.mute, 10);
-          text(g, env.C, 'above the', x, r.y + 26, env.C.mute, 10);
-          text(g, env.C, 'dashed line =', x, r.y + 38, env.C.mute, 10);
-          text(g, env.C, 'lifted', x, r.y + 50, env.C.mute, 10);
-        }
+        text(g, env.C, 'input level, dBFS  (dot = live level and gain; above the dashed line = lifted)', r.x + r.w / 2, r.y + r.h + 20, env.C.mute, 10, 'center');
       },
       read: ({ s }) => [0, 1].map((b) => { const p = compParams(s.pm, b); return `${b ? 'LOW ' : 'HIGH'} ${p.thr.toFixed(0).replace('-', MINUS)} dB · ${p.ratio.toFixed(1)}:1 · ${Math.round(p.rel)} ms · wet ${Math.round(p.dw * 100)} % · makeup ${fmtDb(makeupDb(p.thr, p.ratio))}`; }).join('\n'),
     },
@@ -266,32 +257,33 @@ function drivePanels() {
     {
       id: 'transfer', title: 'Transfer curve', h: 280, legend: L3([['Overdrive', '--fx-comp'], ['Distortion', '--fx-drive'], ['Fuzz', '--fx-oct']]),
       draw(g, w, h, env) {
-        const { C, s, M, L } = env, r = rect(w, h, 14, 8, 14, 26), X = 2.2;
+        const { C, s, M, L, ex } = env, r = rect(w, h, 14, 8, 14, 26), t = s.drive;
+        const gainDb = driveGainDb(s.pm[PM.drive], t), gain = db2lin(gainDb);
+        // x axis: the input of the drive (high band) in amplitude, scaled to the live peak (slow decay, so it does not jump)
+        const peakDb = M && M.sh > -119 ? M.sh : L && L.hi > -119 ? L.hi : -120;
+        const pk = peakDb > -119 ? Math.pow(10, peakDb / 20) : 0;
+        ex.dpk = Math.max(pk, (ex.dpk || 0.05) * 0.985, 0.01);
+        const X = ex.dpk * 1.3;
         const fx = (v) => r.x + (v + X) / (2 * X) * r.w, fy = (v) => r.y + (1 - (v + 1.15) / 2.3) * r.h;
-        grid(g, C, r, [-2, -1, 0, 1, 2], [-1, 0, 1], fx, fy, false, 10);
-        text(g, C, 'input after the gain stage (1 = full scale of the clipper)', r.x + r.w / 2, r.y + r.h + 18, C.mute, 10, 'center');
-        const cols = [C['fx-comp'], C['fx-drive'], C['fx-oct']], t = s.drive;
+        grid(g, C, r, [-X / 1.3, 0, X / 1.3], [-1, 0, 1], fx, fy, false, 10);
+        text(g, C, 'input amplitude of the high band, scaled to its recent peak (' + fmtLvl(20 * Math.log10(ex.dpk)) + ' dBFS)', r.x + r.w / 2, r.y + r.h + 18, C.mute, 10, 'center');
+        const cols = [C['fx-comp'], C['fx-drive'], C['fx-oct']];
         [0, 1, 2].forEach((ty) => {
-          if (ty === t) return;
-          const pts = []; for (let i = 0; i <= 120; i++) { const x = -X + (2 * X * i) / 120; pts.push([fx(x), fy(shape(ty, x))]); }
-          g.globalAlpha = 0.25; curve(g, pts, cols[ty], 1.2); g.globalAlpha = 1;
+          const gn = db2lin(driveGainDb(s.pm[PM.drive], ty)), pts = [];
+          for (let i = 0; i <= 200; i++) { const x = -X + (2 * X * i) / 200; pts.push([fx(x), fy(shape(ty, x * gn))]); }
+          if (ty === t) { g.globalAlpha = s.drv ? 1 : 0.45; curve(g, pts, cols[ty], 2.8); g.globalAlpha = 1; }
+          else { g.globalAlpha = 0.25; curve(g, pts, cols[ty], 1.2); g.globalAlpha = 1; }
         });
-        const cur = []; for (let i = 0; i <= 160; i++) { const x = -X + (2 * X * i) / 160; cur.push([fx(x), fy(shape(t, x))]); }
-        g.globalAlpha = s.drv ? 1 : 0.45; curve(g, cur, cols[t], 2.6); g.globalAlpha = 1;
-        // live input range: the peak of the high band into the drive, times the gain
-        const peak = M && M.sh > -119 ? M.sh : L && L.hi > -119 ? L.hi : -120;
-        if (peak > -119) {
-          const gain = driveGainDb(s.pm[PM.drive], t), p = clamp(shaperInput(peak, gain), 0, X);
-          const seg = []; for (let i = 0; i <= 60; i++) { const x = -p + (2 * p * i) / 60; seg.push([fx(x), fy(shape(t, x))]); }
-          curve(g, seg, C.paper, 5);
+        // the live input range: the peak of the high band, both polarities
+        if (pk > 0) {
           g.fillStyle = C.paper; g.strokeStyle = C.ink; g.lineWidth = 2;
-          [-p, p].forEach((x) => { g.beginPath(); g.arc(fx(x), fy(shape(t, x)), 4.5, 0, 6.2832); g.fill(); g.stroke(); });
+          [-pk, pk].forEach((x) => { g.beginPath(); g.arc(fx(x), fy(shape(t, x * gain)), 4.5, 0, 6.2832); g.fill(); g.stroke(); });
         }
         if (!s.drv) text(g, C, 'drive is off (FS2)', r.x + 6, r.y + 14, C.mute, 11);
       },
       read: ({ s, M, L }) => {
         const gain = driveGainDb(s.pm[PM.drive], s.drive), peak = M && M.sh > -119 ? M.sh : L && L.hi > -119 ? L.hi : null;
-        const into = peak === null ? '' : ` White segment: the live peak of the high band (${fmtLvl(peak)} dBFS) after ${gain.toFixed(0)} dB of gain = ±${shaperInput(peak, gain).toFixed(2)}.`;
+        const into = peak === null ? '' : ` White dots: the live peak of the high band (${fmtLvl(peak)} dBFS) after ${gain.toFixed(0)} dB of gain lands at ±${shaperInput(peak, gain).toFixed(2)} (the clipper is full at 1).`;
         return `${DRIVE_NAMES[s.drive]}, gain ${gain.toFixed(0)} dB.${into}`;
       },
     },
@@ -356,7 +348,7 @@ function mixPanels() {
       read: ({ s }) => `Master ${fmtDb(masterDb(s.pm[PM.master]))}: silence at the left stop, 0 dB at 12 o’clock, +6 dB at the right stop.`,
     },
     {
-      id: 'out', title: 'Output', h: 124,
+      id: 'out', title: 'Output', h: 104,
       draw(g, w, h, env) {
         const { C, L, M, ex } = env, inn = L ? L.in : -120, out = L ? L.out : -120, pc = M ? M.pc : -120;
         drawMeters(g, C, w, h, [
