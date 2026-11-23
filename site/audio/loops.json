@@ -1,0 +1,12 @@
+[
+  {
+    "id": "groove",
+    "name": "Example 1 · Groove",
+    "file": "example-1-groove.flac",
+    "bpm": 130,
+    "gainDb": 0,
+    "style": "groove",
+    "suggestedFor": ["comp", "loop", "oct", "drive"],
+    "note": "Mono, 48 kHz, 8 bars. The file is already scaled by -5.9 dB (peak -6 dBFS, about a bass DI level at the pedal input), so gainDb stays 0."
+  }
+]

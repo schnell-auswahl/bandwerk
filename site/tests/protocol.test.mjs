@@ -128,3 +128,24 @@ test('command queue survives a failing transport', async () => {
   await q.idle();
   assert.deepEqual(seen, [['ping', false, 'gone'], ['defaults', false, 'gone']]);
 });
+
+test('command queue: push() resolves with the reply; replaced commands share the newer reply; clear() answers waiting ones', async () => {
+  const sent = []; const gates = [];
+  const q = new CommandQueue((t) => { sent.push(t); return new Promise((r) => gates.push(() => r({ ok: true, reply: 'ok ' + t }))); });
+  const a = q.push('set 1 100');            // sent at once
+  const b = q.push('set 1 200');            // waits
+  const c = q.push('set 1 300');            // replaces b; b and c both get c's reply
+  const d = q.push('oct on');
+  const step = async () => { gates.shift()(); await new Promise((r) => setImmediate(r)); };
+  await step();
+  assert.deepEqual(await a, { ok: true, reply: 'ok set 1 100' });
+  await step();
+  assert.deepEqual([await b, await c], [{ ok: true, reply: 'ok set 1 300' }, { ok: true, reply: 'ok set 1 300' }]);
+  assert.deepEqual(sent, ['set 1 100', 'set 1 300', 'oct on']);
+  const e = q.push('page loop');            // waits behind 'oct on'
+  q.clear();
+  assert.deepEqual(await e, { ok: false, reply: 'cleared' });
+  await step();
+  assert.deepEqual(await d, { ok: true, reply: 'ok oct on' });
+  await q.idle();
+});

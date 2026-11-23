@@ -133,39 +133,53 @@ export function cmdKey(text) {
 
 // One command at a time (the firmware answers each with one [CMD] line).
 // send(text) -> Promise<{ok, reply}>. Events via onDone(text, ok, reply).
+// push() returns a promise for the reply. A command that is replaced while it
+// waits (same key) hands its waiters on to the newer one, so every caller gets
+// the reply of the value that was really sent. clear() answers the waiting
+// ones with { ok: false, reply: 'cleared' }.
 export class CommandQueue {
   constructor(send, onDone = () => {}) {
     this.sendFn = send;
     this.onDone = onDone;
-    this.q = new Map();
+    this.q = new Map();     // key -> { text, waiters: [resolve] }
     this.busy = false;
     this.waiters = [];
   }
   push(text, key = cmdKey(text)) {
+    const old = this.q.get(key);
+    const entry = { text, waiters: old ? old.waiters : [] };
     this.q.delete(key);
-    this.q.set(key, text);
+    this.q.set(key, entry);
+    const result = new Promise((resolve) => entry.waiters.push(resolve));
     this.pump();
+    return result;
   }
-  pushAll(list) { list.forEach((c) => this.push(c)); }
-  clear() { this.q.clear(); }
+  pushAll(list) { return Promise.all(list.map((c) => this.push(c))); }
+  clear() {
+    for (const e of this.q.values()) e.waiters.forEach((r) => r({ ok: false, reply: 'cleared' }));
+    this.q.clear();
+    if (!this.busy) this.flushIdle();
+  }
   get size() { return this.q.size + (this.busy ? 1 : 0); }
   // Resolves when everything queued so far has been sent.
   idle() { return this.size === 0 ? Promise.resolve() : new Promise((r) => this.waiters.push(r)); }
+  flushIdle() { this.waiters.splice(0).forEach((r) => r()); }
   async pump() {
     if (this.busy) return;
-    if (!this.q.size) { const w = this.waiters.splice(0); w.forEach((r) => r()); return; }
-    const [k, text] = this.q.entries().next().value;
+    if (!this.q.size) { this.flushIdle(); return; }
+    const [k, entry] = this.q.entries().next().value;
     this.q.delete(k);
     this.busy = true;
     let ok = false, reply = '';
     try {
-      const r = await this.sendFn(text);
+      const r = await this.sendFn(entry.text);
       ok = !!(r && r.ok); reply = (r && r.reply) || '';
     } catch (e) {
       ok = false; reply = (e && e.message) || 'failed';
     }
     this.busy = false;
-    try { this.onDone(text, ok, reply); } catch (e) { /* listener errors must not stop the queue */ }
+    try { this.onDone(entry.text, ok, reply); } catch (e) { /* listener errors must not stop the queue */ }
+    entry.waiters.forEach((r) => r({ ok, reply }));
     this.pump();
   }
 }

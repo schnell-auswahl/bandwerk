@@ -7,6 +7,7 @@
 <meta name="description" content="Live signal chain, editor and pedal view of the Hothouse Bass Multiband firmware. Demo in the browser, or connect your pedal over USB.">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/studio.css">
+<link rel="stylesheet" href="css/player.css">
 <style>
   html, body { margin: 0; background: var(--ink); color: var(--paper); }
   body { font-family: var(--sans); }
@@ -27,16 +28,25 @@
     </div>
     <p>Click any block to edit it. Without a pedal the studio runs a simulated one; connect your pedal over USB and every change goes straight to the hardware. <a href="index.html#install">Install the firmware</a></p>
   </header>
+  <div id="player-root"></div>
   <div id="studio-root"></div>
 </div>
 <script type="module">
+  import { createSession } from './js/core/session.js';
   import { mountStudio } from './js/studio/main.js';
+  import { mountPlayer } from './js/player/player-view.js';
   const q = new URLSearchParams(location.search);
-  window.studio = mountStudio(document.getElementById('studio-root'), {
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const options = {
     transport: q.get('transport') || 'auto',
     bridgeUrl: q.get('bridge') || undefined,
-    compact: q.has('compact'),
-  });
+    loopsUrl: q.get('loops') || (local ? ['audio/dev/loops.json', 'audio/loops.json'] : 'audio/loops.json'),
+  };
+  if (q.get('pedal') === 'standin') options.pedalModule = new URL('./js/audio/virtual-pedal-standin.js', location.href).href;
+  const session = await createSession(options);
+  window.session = session;
+  window.studio = mountStudio(document.getElementById('studio-root'), session, { compact: q.has('compact') });
+  window.player = mountPlayer(document.getElementById('player-root'), session);
 </script>
 </body>
 </html>

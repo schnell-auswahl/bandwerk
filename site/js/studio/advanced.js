@@ -39,6 +39,7 @@ export class Advanced {
     if (this.title !== t) { this.title = t; this.d.querySelector('[data-title]').textContent = t; }
     if (this.note !== r.note) { this.note = r.note; this.d.querySelector('[data-note]').textContent = r.note; }
   }
+  clearLog() { this.logEl.innerHTML = ''; this.shown = 0; }
   renderLog(log) {
     if (this.shown > log.length) { this.logEl.innerHTML = ''; this.shown = 0; }
     const add = log.slice(this.shown).map((e) => `<li class="lg-${e.kind}"><time>${e.ts}</time> ${esc(e.text)}</li>`).join('');

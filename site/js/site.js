@@ -1,5 +1,6 @@
-// Landing page script: navigation (mobile menu, active section) and mounting of
-// the studio (js/studio/main.js) and the flasher (js/flasher/main.js).
+// Landing page script: navigation (mobile menu, active section), the shared session
+// (js/core/session.js) and mounting of the studio (js/studio/main.js), the player
+// (js/player/player-view.js) and the flasher (js/flasher/main.js).
 // Both modules are loaded dynamically; if one is missing or fails, a tidy
 // placeholder is shown instead and the rest of the page keeps working.
 
@@ -116,16 +117,40 @@ function highlightConnect() {
   setTimeout(() => target.classList.remove("site-callout"), 6000);
 }
 
+// Options of the shared session from the page URL (development switches):
+//   ?transport=demo|bridge|auto  ?bridge=http://host:port  ?pedal=standin (no WebAssembly build needed)
+//   ?loops=audio/dev/loops.json  (the loops folder is gitignored; on localhost it is tried first)
+function sessionOptions() {
+  const q = new URLSearchParams(location.search);
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const opts = { transport: q.get("transport") || "auto" };
+  if (q.get("bridge")) opts.bridgeUrl = q.get("bridge");
+  if (q.get("pedal") === "standin") opts.pedalModule = new URL("./audio/virtual-pedal-standin.js", import.meta.url).href;
+  opts.loopsUrl = q.get("loops") || (local ? ["audio/dev/loops.json", "audio/loops.json"] : "audio/loops.json");
+  return opts;
+}
+
 async function mountAll() {
   const studioRoot = document.getElementById("studio-root");
   const flasherRoot = document.getElementById("flasher-root");
-  let studio = null;
+  const playerRoot = document.getElementById("player-root");
+
+  // One session for the whole page: the virtual pedal (or the connected pedal), the store, the audio.
+  let session = null;
+  try {
+    const mod = await import("./core/session.js");
+    session = await mod.createSession(sessionOptions());
+    window.hothouse = { session };
+  } catch (err) {
+    console.warn("Session not available:", err);
+  }
 
   if (studioRoot) {
     try {
+      if (!session) throw new Error("no session");
       const mod = await import("./studio/main.js");
       studioRoot.replaceChildren();
-      studio = mod.mountStudio(studioRoot, { compact: true });
+      mod.mountStudio(studioRoot, session, { compact: true });
     } catch (err) {
       console.warn("Studio not available:", err);
       placeholder(studioRoot, {
@@ -137,17 +162,25 @@ async function mountAll() {
     }
   }
 
+  if (playerRoot) {
+    try {
+      if (!session) throw new Error("no session");
+      const mod = await import("./player/player-view.js");
+      playerRoot.replaceChildren();
+      mod.mountPlayer(playerRoot, session);
+    } catch (err) {
+      console.warn("Player not available:", err);
+      playerRoot.hidden = true;
+    }
+  }
+
   if (flasherRoot) {
     try {
       const mod = await import("./flasher/main.js");
       flasherRoot.replaceChildren();
       mod.mountFlasher(flasherRoot, {
-        // Use the studio's open connection when a pedal is connected there;
-        // otherwise return null so the flasher opens the serial port itself.
-        enterBootloader: async () =>
-          (studio && studio.connected && typeof studio.enterBootloader === "function")
-            ? studio.enterBootloader()
-            : null,
+        // Uses the session's open connection to restart the pedal into update mode.
+        enterBootloader: () => (session ? session.enterBootloader() : null),
         onFlashed: () => highlightConnect(),
       });
     } catch (err) {

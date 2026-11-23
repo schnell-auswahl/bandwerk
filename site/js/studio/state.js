@@ -113,6 +113,7 @@ export class Store extends EventTarget {
     this.hist = {}; HKEYS.forEach((k) => { this.hist[k] = []; });
     this.over = {};   // optimistic local edits: key (pm index or field) -> {v, t}
     this.log = [];
+    this.dispatchEvent(new Event('reset'));
   }
   // Effective state for the view: last [S] (or defaults) plus local edits not yet confirmed.
   view() {
@@ -169,5 +170,10 @@ export class Store extends EventTarget {
     if (this.log.length > 200) this.log.shift();
     this.emit('log');
   }
-  emit(type) { this.dispatchEvent(new Event(type)); }
+  // 'state' (an [S] line or a local edit) also fires 'change'; 'live' / 'sys' also fire 'telemetry'.
+  emit(type) {
+    this.dispatchEvent(new Event(type));
+    if (type === 'state') this.dispatchEvent(new Event('change'));
+    else if (type === 'live' || type === 'sys') this.dispatchEvent(new Event('telemetry'));
+  }
 }
