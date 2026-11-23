@@ -1,21 +1,20 @@
-// Hothouse Bass Multiband studio: the live signal chain, editor and pedal.
-// Entry point: mountStudio(root, options) (see docs/STUDIO.md).
+// Hothouse Bass Multiband studio: the live signal chain, the block editor and the Advanced area.
+// Entry point: mountStudio(root, session, options) (see docs/STUDIO.md). The pedal itself and the
+// knob-page panel are separate components (js/pedal/); everything shares the one `session`
+// (js/core/session.js), which owns the transports, the store and the commands.
 
-import { Store, chainState, knobsForBlock } from './state.js';
-import { CommandQueue, cmd as C, switchCmds, footCmds, footHoldCmds } from './protocol.js';
-import { knobParams, PAGE_CMDS, fmtLvl, LOOP_CMDS, DRIVE_CMDS, BAND_CMDS, PAGES } from './mapping.js';
+import { chainState, knobsForBlock } from './state.js';
+import { cmd as C } from './protocol.js';
+import { fmtLvl } from './mapping.js';
 import { Chain, DEF, INFO, STATE_TEXT, blockLines, meterLevel } from './chain.js';
 import { Editor } from './editor.js';
-import { Pedal, KnobPanel } from './pedal.js';
 import { Advanced } from './advanced.js';
-import { DemoTransport } from './transport-demo.js';
-import { BridgeTransport, probeBridge } from './transport-bridge.js';
-import { SerialTransport, serialSupported, DAISY_USB } from './transport-serial.js';
-import { presetFromState, presetToJson, presetFromJson, presetCommands, presetToHash, presetFromHash } from './presets.js';
+import { serialSupported } from './transport-serial.js';
+import { presetFromState, presetToJson, presetFromJson, presetToHash, presetFromHash } from './presets.js';
 import { esc, readColors } from './dom.js';
 
-export function mountStudio(root, options = {}) {
-  return new Studio(root, options);
+export function mountStudio(root, session, options = {}) {
+  return new Studio(root, session, options);
 }
 
 const SKELETON = `
@@ -27,13 +26,12 @@ const SKELETON = `
   <button type="button" class="st-btn tg" data-bypass aria-pressed="false"><span class="tg-l">Bypass</span> <b>OFF</b></button>
   <label class="st-ctl" data-ctlwrap hidden><input type="checkbox" data-ctl> Control</label>
   <button type="button" class="st-btn" data-defaults>Defaults</button>
-  <button type="button" class="st-btn" data-demo hidden>Demo</button>
+  <button type="button" class="st-btn" data-demo hidden>Virtual pedal</button>
   <button type="button" class="st-btn st-primary" data-connect>Connect pedal (USB)</button>
 </div>
 <div class="st-msg" data-msg role="status" aria-live="polite"></div>
 <div class="st-stage" data-stage></div>
-<p class="st-hint">Click a block to edit it. Switches on the blocks act at once; the pedal below works like the real one (drag a knob up/down, tap or hold a footswitch). Click a knob to see what it controls.</p>
-<div class="st-lower"><div class="st-pedalwrap" data-pedal></div><div class="st-kpwrap" data-kp></div></div>
+<p class="st-hint">Click a block to edit it. Switches on the blocks act at once.</p>
 <div class="st-presets" role="group" aria-label="Presets">
   <span class="eyebrow-s">Preset</span>
   <button type="button" class="st-btn" data-pexport>Export</button>
@@ -45,20 +43,18 @@ const SKELETON = `
 <div class="st-tip" data-tip hidden></div>`;
 
 class Studio extends EventTarget {
-  constructor(root, options) {
+  constructor(root, session, options) {
     super();
     this.root = root;
-    this.opts = { transport: 'auto', bridgeUrl: null, compact: false, ...options };
+    this.session = session;
+    this.store = session.store;
+    this.opts = { compact: false, ...options };
     root.classList.add('studio');
     root.innerHTML = SKELETON;
     this.$ = (sel) => root.querySelector(sel);
-    this.store = new Store(() => Date.now());
-    this.transport = null; this.kind = null; this.hello = null;
     this.sel = null; this.detailSel = 'compH'; this.hlKnob = 0;
-    this.dirty = true; this.wantSerial = null; this.lastPort = null;
+    this.dirty = true;
     this._colors = null;
-    this.queue = new CommandQueue((text) => (this.transport ? this.transport.send(text) : Promise.resolve({ ok: false, reply: 'not connected' })),
-      (text, ok, reply) => { if (!ok || !/^set /.test(text)) this.store.addLog(`→ ${text}: ${reply}`, ok ? 'cmd' : 'err'); });
 
     const stage = this.$('[data-stage]');
     this.chain = new Chain(stage, {
@@ -71,32 +67,23 @@ class Studio extends EventTarget {
     this.editor = new Editor(stage, {
       onParam: (i, v) => this.send([C.set(i, v)]),
       onCmd: (c) => this.send([c]),
-      onClose: (id, user) => { this.sel = null; this.chain.select(null); this.pedalHl(); this.dirty = true; if (user && id) this.chain.focusBlock(id); },
+      onClose: (id, user) => { this.sel = null; this.chain.select(null); this.dirty = true; if (user && id) this.chain.focusBlock(id); },
       colors: () => this.colors(),
     });
-    this.pedal = new Pedal(this.$('[data-pedal]'), {
-      onKnob: (k, v) => this.send(knobParams(k, this.view()).map((i) => C.set(i, v))),
-      onKnobClick: (k) => this.knobClick(k),
-      onToggle: (i, pos) => this.toggle(i, pos),
-      onFoot: (i, ev) => this.foot(i, ev),
-    });
-    this.kp = new KnobPanel(this.$('[data-kp]'), { onPage: (p) => this.send([C.page(p)]), onKnobClick: (k) => this.knobClick(k) });
     this.adv = new Advanced(this.$('[data-adv]'), { open: !this.opts.compact, colors: () => this.colors() });
 
     this.bindBar();
     this.bindPresets();
+    this.bindSession();
     ['state', 'live', 'sys'].forEach((t) => this.store.addEventListener(t, () => { this.dirty = true; }));
     this.store.addEventListener('log', () => this.adv.renderLog(this.store.log));
+    this.store.addEventListener('reset', () => this.adv.clearLog());
     document.addEventListener('pointerdown', (e) => {
       if (this.editor.open && !this.editor.el.contains(e.target) && !e.target.closest('.studio [data-b]')) this.editor.close();
     });
-    if (typeof navigator !== 'undefined' && navigator.serial) {
-      navigator.serial.addEventListener('connect', (e) => {
-        if (this.wantSerial && this.kind !== 'serial') setTimeout(() => this.connectSerial(e.target || e.port, true), 1500);
-      });
-    }
     this.chain.fit();
-    this.start();
+    this.adv.renderLog(this.store.log);
+    this.onConnection();
     this.checkSharedPreset();
     let last = 0, lastAdv = 0;
     const frame = (t) => {
@@ -112,171 +99,62 @@ class Studio extends EventTarget {
     this.staleTimer = setInterval(() => this.renderBar(), 500);
   }
 
-  // ---- public API (contract section 2)
-  get connected() { return (this.kind === 'serial' && !!this.hello && this.transport && this.transport.open) || (this.kind === 'bridge' && !!(this.transport && this.transport.pedal)); }
-  async enterBootloader() {
-    if (!this.connected) return false;
-    await this.queue.idle();
-    if (this.kind === 'serial') { this.wantSerial = this.lastPort; return this.transport.enterBootloader(); }
-    const r = await this.transport.send('dfu');
-    return r.ok;
-  }
-  async disconnect() {
-    this.wantSerial = null;
-    if (this.kind === 'serial' || this.kind === 'bridge') await this.useTransport('demo');
+  // ---- public API
+  get kind() { return this.session.kind; }
+  get hello() { return this.session.hello; }
+  get connected() { return this.session.connected; }
+  enterBootloader() { return this.session.enterBootloader(); }
+  disconnect() { return this.session.disconnect(); }
+  // Marks the blocks a pedal knob (1..6) controls; 0 clears. (The pedal components call this on a knob click.)
+  highlightKnob(k) {
+    this.hlKnob = this.hlKnob === k ? 0 : k;
+    this.chain.hlKnob = this.hlKnob;
+    this.dirty = true;
   }
 
   colors() { return this._colors || (this._colors = readColors(this.root)); }
   view() { return this.store.view(); }
-  get control() {
-    if (this.kind === 'demo') return true;
-    if (this.kind === 'serial') return this.connected;
-    if (this.kind === 'bridge') return this.connected && this.$('[data-ctl]').checked;
-    return false;
-  }
+  get control() { return this.session.control; }
 
-  // ---- transports
-  async start() {
-    let kind = this.opts.transport;
-    if (kind === 'auto' || kind === 'bridge') {
-      const base = this.bridgeBase();
-      const up = base !== null && await probeBridge(base);
-      kind = up ? 'bridge' : 'demo';
-      if (!up && this.opts.transport === 'bridge') this.msg('No bridge answers at ' + esc(base || '(no address)') + '. Showing the demo.', 'warn');
-    }
-    if (kind === 'serial') kind = 'demo';   // the port needs a click on "Connect pedal"
-    await this.useTransport(kind);
-  }
-  bridgeBase() {
-    if (this.opts.bridgeUrl) return this.opts.bridgeUrl.replace(/\/$/, '');
-    // The Python bridge only ever runs on this computer: probe it only when the page itself is served locally,
-    // so the public site (GitHub Pages) does not request a /state that cannot exist.
-    if (typeof location === 'undefined' || !/^https?:$/.test(location.protocol)) return null;
-    return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? location.origin : null;
-  }
-  async useTransport(kind, ready = null) {
-    const old = this.transport;
-    this.transport = null;
-    if (old) { old.onStatus && old.removeEventListener('status', old.onStatus); await old.disconnect(); }
-    this.queue.clear();
-    this.store.reset();
-    this.adv.renderLog(this.store.log);
-    this.hello = null;
-    this.kind = kind;
-    const t = ready || (kind === 'bridge' ? new BridgeTransport(this.bridgeBase()) : new DemoTransport());
-    this.transport = t;
-    t.addEventListener('message', (e) => this.store.apply(e.detail));
-    t.onStatus = (e) => this.onStatus(t, e.detail);
-    t.addEventListener('status', t.onStatus);
-    t.addEventListener('hello', (e) => { this.hello = e.detail; this.announce(); this.dirty = true; });
-    if (!ready) this.hello = await t.connect(); else this.hello = t.hello;
-    this.$('[data-ctlwrap]').hidden = kind !== 'bridge';
-    this.$('[data-demo]').hidden = kind === 'demo';
-    this.$('[data-connect]').textContent = kind === 'serial' ? 'Disconnect' : 'Connect pedal (USB)';
-    this.store.addLog(kind === 'demo' ? 'Demo started (simulated pedal)' : kind === 'bridge' ? 'Connected to the bridge at ' + this.bridgeBase() : 'Connected over USB' + (this.hello ? ', firmware ' + this.hello.fw : ''), 'info');
-    if (kind !== 'bridge') this.announce();
-    this.dirty = true;
-  }
-  announce() {
-    this.dispatchEvent(new CustomEvent('connection', { detail: { kind: this.kind, hello: this.hello } }));
-  }
-  onStatus(t, d) {
-    if (t !== this.transport) return;
-    if (this.kind === 'serial' && !d.connected && d.lost) {
-      this.wantSerial = d.port || this.lastPort;
-      const text = d.lost === 'bootloader' ? 'The pedal restarted into its bootloader (update mode).'
-        : d.lost === 'unplugged' ? 'Pedal unplugged. Plug it back in and it reconnects.' : 'Connection to the pedal lost.';
-      this.msg(esc(text), 'warn');
-      this.store.addLog(text, 'err');
-      this.useTransport('demo');
-      this.announce();
-      return;
-    }
-    if (this.kind === 'bridge') {
-      if (!d.pedal) this.hello = null;
-      this.store.addLog(d.text, 'info');
-    }
-    this.dirty = true;
-  }
-
-  async connectSerial(port = null, auto = false) {
-    if (!serialSupported()) {
-      this.msg('Connecting needs Web Serial: use Chrome, Edge or Opera on a desktop computer. The demo works everywhere.', 'warn');
-      return;
-    }
-    try {
-      if (!port) port = await navigator.serial.requestPort({ filters: [DAISY_USB] });
-    } catch (e) {
-      return;   // the user closed the chooser
-    }
-    this.lastPort = port;
-    const t = new SerialTransport();
-    this.msg('Connecting to the pedal…', 'info');
-    try {
-      await t.connect(port);
-    } catch (e) {
-      if (e.code === 'no-hello') {
-        this.msg('This pedal runs other firmware or an old version of this one. <a href="#install">Install Hothouse Bass Multiband →</a>', 'warn');
-      } else if (!auto || e.code !== 'busy') {
-        this.msg(esc(e.message), 'warn');
-      }
-      return;
-    }
-    this.wantSerial = null;
-    this.msg('', '');
-    await this.useTransport('serial', t);
-  }
-
-  // ---- commands from the UI
-  send(list) {
-    if (!this.control) {
-      this.msg(this.kind === 'bridge' ? 'Turn on “Control” to change settings from the browser.' : 'Connect a pedal to change its settings.', 'info');
+  // ---- session events
+  bindSession() {
+    const ses = this.session;
+    ses.addEventListener('connection', () => this.onConnection());
+    ses.addEventListener('notice', (e) => this.onNotice(e.detail));
+    ses.addEventListener('denied', (e) => {
+      this.msg(e.detail.reason === 'bridge-control' ? 'Turn on “Control” to change settings from the browser.' : 'Connect a pedal to change its settings.', 'info');
       this.dirty = true;
-      return;
-    }
+    });
+  }
+  onConnection() {
+    const kind = this.kind;
+    this.$('[data-ctlwrap]').hidden = kind !== 'bridge';
+    this.$('[data-demo]').hidden = kind === 'virtual' || kind === 'demo-js';
+    this.$('[data-connect]').textContent = kind === 'serial' ? 'Disconnect' : 'Connect pedal (USB)';
+    this.adv.renderLog(this.store.log);
+    this.dirty = true;
+    this.dispatchEvent(new CustomEvent('connection', { detail: { kind, hello: this.hello } }));
+  }
+  onNotice({ text, level, code }) {
+    if (code === 'no-hello') this.msg(esc(text) + ' <a href="#install">Install Hothouse Bass Multiband →</a>', level);
+    else this.msg(esc(text), text ? level : '');
+  }
+
+  // ---- commands from the UI. A bare 'oct' / 'drv' / 'byp' toggles the flag.
+  send(list) {
     const s = this.view();
-    const out = [];
     for (let c of list) {
       if (c === 'oct' || c === 'drv' || c === 'byp') c = C.onOff(c, !s[c]);
-      const w = c.split(' ');
-      const key = { oct: 'oct', drv: 'drv', byp: 'byp', lmode: 'loop', dtype: 'drive', band: 'band', page: 'page' }[w[0]];
-      if (w[0] === 'set') this.store.edit(+w[1], +w[2] / 1000);
-      else if (key) {
-        const v = { lmode: LOOP_CMDS, dtype: DRIVE_CMDS, band: BAND_CMDS, page: PAGE_CMDS }[w[0]];
-        this.store.edit(key, v ? v.indexOf(w[1]) : w[1] === 'on' ? 1 : 0);
-      }
-      out.push(c);
+      this.session.command(c);
     }
-    this.queue.pushAll(out);
-  }
-  toggle(i, pos) {
-    if (!this.control) return this.send([]);
-    if (this.kind === 'demo') this.transport.physical('toggle', i, pos);
-    else this.send(switchCmds(i, pos));
-  }
-  foot(i, ev) {
-    if (!this.control) { if (ev === 'tap') this.send([]); return; }
-    if (this.kind === 'demo') {
-      if (ev === 'down' || ev === 'up') this.transport.physical('footswitch', i, ev === 'down');
-      return;
-    }
-    if (ev === 'tap') this.send(footCmds(i, this.view()));
-    if (ev === 'hold') this.send(footHoldCmds(i));
-  }
-  knobClick(k) {
-    this.hlKnob = this.hlKnob === k ? 0 : k;
-    this.chain.hlKnob = this.hlKnob;
-    this.pedalHl();
     this.dirty = true;
   }
-  pedalHl() { this.pedal.setHighlight(this.hlKnob, this.sel ? knobsForBlock(this.sel, this.view()) : []); }
 
   // ---- selection and editor
   select(id) {
     if (this.sel === id && this.editor.open) { this.editor.close(true); return; }
     this.sel = id; this.detailSel = id;
     this.chain.select(id);
-    this.pedalHl();
     this.renderAll();
     this.openEditor(id);
   }
@@ -309,8 +187,6 @@ class Studio extends EventTarget {
     const on = this.control;
     this.chain.setEnabled(on);
     this.editor.setEnabled(on, this.kind === 'bridge' ? 'Control is off: turn on “Control” in the bar to edit.' : 'Connect the pedal to edit.');
-    this.pedal.setEnabled(on);
-    this.kp.setEnabled(on);
     this.$('[data-bypass]').disabled = !on;
     this.$('[data-defaults]').disabled = !on;
     this.root.classList.toggle('st-ro', !on);
@@ -319,8 +195,6 @@ class Studio extends EventTarget {
     const s = this.view();
     this.applyControl();
     this.chain.render(s, this.store);
-    this.pedal.render(s, this.store, this.kind === 'demo');
-    this.kp.render(s, this.store, this.pedal.knobInfo(s), this.hlKnob);
     if (this.editor.open) this.editor.sync(s, this.store);
     const b = this.$('[data-bypass]');
     b.setAttribute('aria-pressed', String(!!s.byp)); b.classList.toggle('on', !!s.byp);
@@ -328,13 +202,15 @@ class Studio extends EventTarget {
     this.renderBar();
   }
   renderBar() {
-    const t = this.transport, L = this.store.L, SYS = this.store.SYS;
+    const ses = this.session, t = ses.transport, L = this.store.L, SYS = this.store.SYS, kind = ses.kind;
     let text = 'Not connected', cls = 'off';
-    if (this.kind === 'demo') { text = 'Demo mode · simulated pedal'; cls = 'demo'; }
-    else if (this.kind === 'serial') {
+    if (kind === 'virtual') {
+      text = ses.backend === 'wasm' ? 'Virtual pedal · the firmware running in your browser' : 'Virtual pedal · press Play to hear it'; cls = 'demo';
+    } else if (kind === 'demo-js') { text = 'Demo mode · simulated pedal'; cls = 'demo'; }
+    else if (kind === 'serial') {
       const stale = !L || Date.now() - this.store.lastL > 2000;
       text = stale ? 'Connected over USB · waiting for telemetry' : 'Pedal connected over USB'; cls = stale ? 'warn' : 'ok';
-    } else if (this.kind === 'bridge' && t) {
+    } else if (kind === 'bridge' && t) {
       if (!t.bridgeUp) { text = 'Bridge not reachable'; cls = 'err'; }
       else if (!t.pedal) { text = 'Bridge running · pedal not connected'; cls = 'warn'; }
       else if (!L || Date.now() - this.store.lastL > 2000) { text = 'Pedal on the bridge · no telemetry (firmware without live output?)'; cls = 'warn'; }
@@ -343,9 +219,9 @@ class Studio extends EventTarget {
     const st = this.$('[data-status]');
     if (st.textContent !== text) st.textContent = text;
     this.$('[data-dot]').className = 'st-dot ' + cls;
-    this.$('[data-fw]').textContent = this.hello && this.kind !== 'demo' ? 'fw ' + this.hello.fw : '';
+    this.$('[data-fw]').textContent = ses.hello && (kind === 'serial' || kind === 'bridge') ? 'fw ' + ses.hello.fw : '';
     this.$('[data-meters]').innerHTML = L ? `IN <b>${fmtLvl(L.in)}</b> · OUT <b>${fmtLvl(L.out)}</b> dBFS${SYS ? ` · CPU <b>${SYS.cpu_avg.toFixed(0)} %</b>` : ''}` : '';
-    if (this.adv.isOpen) this.adv.renderSys(this.store, this.hello, this.kind);
+    if (this.adv.isOpen) this.adv.renderSys(this.store, ses.hello, kind);
   }
   msg(html, kind) {
     const m = this.$('[data-msg]');
@@ -355,12 +231,12 @@ class Studio extends EventTarget {
 
   bindBar() {
     this.$('[data-connect]').addEventListener('click', () => {
-      if (this.kind === 'serial') this.disconnect();
-      else this.connectSerial();
+      if (this.kind === 'serial') this.session.disconnect();
+      else this.session.connectSerial();
     });
-    this.$('[data-demo]').addEventListener('click', () => { this.wantSerial = null; this.msg('', ''); this.useTransport('demo'); });
+    this.$('[data-demo]').addEventListener('click', () => { this.msg('', ''); this.session.disconnect(); });
     this.$('[data-bypass]').addEventListener('click', () => this.send(['byp']));
-    this.$('[data-ctl]').addEventListener('change', () => { this.dirty = true; this.msg('', ''); });
+    this.$('[data-ctl]').addEventListener('change', (e) => { this.session.bridgeControl = e.target.checked; this.dirty = true; this.msg('', ''); });
     this.$('[data-defaults]').addEventListener('click', () => {
       if (typeof confirm !== 'function' || confirm('Set all values to the factory defaults? Octaver and drive switch off.')) this.send(['defaults']);
     });
@@ -385,8 +261,7 @@ class Studio extends EventTarget {
       if (!f) return;
       try {
         const p = presetFromJson(await f.text());
-        this.applyPreset(p);
-        pmsg(`Applied “${p.name}”.`);
+        if (await this.session.applyPreset(p)) pmsg(`Applied “${p.name}”.`);
       } catch (err) { pmsg(err.message); }
     });
     this.$('[data-plink]').addEventListener('click', async () => {
@@ -395,20 +270,13 @@ class Studio extends EventTarget {
       catch (e) { pmsg('Copy this link: ' + url); }
     });
   }
-  applyPreset(p) {
-    if (!this.control) { this.send([]); return false; }
-    this.send(presetCommands(p));
-    this.store.addLog(`Preset “${p.name}” applied`, 'info');
-    return true;
-  }
   checkSharedPreset() {
     let p = null;
     try { p = presetFromHash(location.hash); } catch (e) { this.msg('The preset in this link is damaged: ' + esc(e.message), 'warn'); return; }
     if (!p) return;
     this.msg(`Shared preset “${esc(p.name)}” in this link. <button type="button" class="st-btn" data-papply>Apply</button> <button type="button" class="st-btn" data-pdismiss>Dismiss</button>`, 'info');
-    this.$('[data-papply]').addEventListener('click', () => { if (this.applyPreset(p)) this.msg(`Applied “${esc(p.name)}”.`, 'info'); });
+    this.$('[data-papply]').addEventListener('click', async () => { if (await this.session.applyPreset(p)) this.msg(`Applied “${esc(p.name)}”.`, 'info'); });
     this.$('[data-pdismiss]').addEventListener('click', () => this.msg('', ''));
     this.root.scrollIntoView({ block: 'start' });
   }
 }
-export { PAGES };

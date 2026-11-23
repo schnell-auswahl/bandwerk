@@ -1,0 +1,95 @@
+/* Demo player: compact control in the hero and the sticky bottom bar (site/js/player/player-view.js).
+ * Only variables from tokens.css. Works with and without base.css. */
+
+.pl, .pl *, .pl *::before, .pl *::after { box-sizing: border-box; }
+.pl { font-family: var(--sans); font-size: var(--fs-small); line-height: 1.4; color: var(--paper); }
+.pl :where(p, fieldset, legend) { margin: 0; padding: 0; border: 0; }
+.pl :where(button, select, input) { font: inherit; color: inherit; }
+.pl :where(button) { cursor: pointer; }
+.pl :focus-visible { outline: var(--border) solid var(--focus); outline-offset: 2px; }
+.pl [hidden], .pl[hidden] { display: none !important; }
+
+.pl-lab { display: block; font: 600 var(--fs-label) var(--mono); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--mute); margin-bottom: var(--sp-1); }
+.pl-lab b { color: var(--paper); font-weight: 600; letter-spacing: 0; text-transform: none; margin-left: var(--sp-1); }
+.pl-msg { font: var(--fs-label) / 1.45 var(--mono); color: var(--mute); min-height: 1.45em; }
+.pl[data-state="unavailable"] .pl-msg { color: var(--warn); }
+
+.pl-play {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-width: 108px; height: 48px; padding: 0 var(--sp-4);
+  font: 800 var(--fs-small) var(--mono); letter-spacing: .04em; text-transform: uppercase;
+  background: var(--fx-io); color: var(--on-fx); border: var(--border) solid var(--fx-io); border-radius: var(--radius);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.pl-play:hover:not(:disabled) { border-color: var(--paper); }
+.pl-play:disabled { background: var(--ink-3); border-color: var(--line-strong); color: var(--mute); cursor: not-allowed; }
+
+.pl-field { display: block; min-width: 0; }
+.pl select, .pl-reset {
+  height: 48px; padding: 0 var(--sp-3); background: var(--ink); color: var(--paper); border: var(--border) solid var(--line-strong); border-radius: var(--radius);
+  font: 600 var(--fs-small) var(--mono); max-width: 100%;
+}
+.pl select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.pl select:hover:not(:disabled), .pl-reset:hover:not(:disabled) { border-color: var(--paper); }
+.pl select:disabled, .pl-reset:disabled { opacity: .5; cursor: not-allowed; }
+.pl-reset { background: transparent; }
+
+.pl input[type="range"] { width: 100%; height: 48px; margin: 0; accent-color: var(--fx-io); background: transparent; }
+
+.pl-source { min-width: 0; }
+.pl-seg { display: inline-flex; }
+.pl-seg label { position: relative; display: inline-flex; cursor: pointer; }
+.pl-seg input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: inherit; }
+.pl-seg span { display: inline-flex; align-items: center; height: 48px; padding: 0 var(--sp-3); font: 700 var(--fs-label) var(--mono); border: var(--border) solid var(--line-strong); margin-left: calc(-1 * var(--border)); white-space: nowrap; }
+.pl-seg label:first-child span { margin-left: 0; }
+.pl-seg input:checked + span { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.pl-seg input:checked + span::before { content: "●"; margin-right: var(--sp-2); }
+.pl-seg input:focus-visible + span { outline: var(--border) solid var(--focus); outline-offset: 2px; position: relative; z-index: 1; }
+
+/* ---- compact (hero) */
+.pl--compact { max-width: 560px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); align-items: end; }
+.pl--compact .pl-msg { grid-column: 1 / -1; }
+.pl--compact .pl-field--loop { min-width: 0; }
+
+/* ---- sticky bar */
+.pl--bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; padding: var(--sp-3) var(--gut) var(--sp-3);
+  background: var(--ink-2); border-top: var(--border) solid var(--fx-io);
+}
+.pl--bar .pl-row { display: flex; flex-wrap: wrap; align-items: end; gap: var(--sp-3) var(--sp-4); max-width: var(--max); margin: 0 auto; }
+.pl--bar .pl-extra { display: contents; }
+.pl--bar .pl-more { display: none; }
+.pl--bar [data-play] { order: 1; }
+.pl--bar .pl-field--loop { order: 2; flex: 1 1 200px; max-width: 280px; }
+.pl--bar .pl-field--amp { order: 3; flex: 1 1 170px; max-width: 220px; }
+.pl--bar .pl-field--vol { order: 4; flex: 1 1 160px; max-width: 240px; }
+.pl--bar .pl-source { order: 5; }
+.pl--bar .pl-reset { order: 6; }
+.pl--bar .pl-msg { max-width: var(--max); margin: var(--sp-2) auto 0; min-height: 0; }
+html.has-player-bar body { padding-bottom: var(--pl-h, 0px); }
+
+@media (max-width: 760px) {
+  .pl--bar { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+  .pl--bar .pl-row { gap: var(--sp-2) var(--sp-3); }
+  .pl--bar .pl-play { min-width: 48px; width: 48px; padding: 0; }
+  .pl--bar .pl-play [data-playlabel] { display: none; }
+  .pl--bar select, .pl--bar .pl-reset, .pl--bar .pl-seg span, .pl--bar input[type="range"], .pl--bar .pl-more, .pl--bar .pl-play { height: 44px; }
+  .pl--bar .pl-play { width: 44px; min-width: 44px; }
+  .pl--bar .pl-field--loop { flex: 1 1 calc(100% - 56px); max-width: none; min-width: 0; }
+  .pl--bar .pl-field--loop .pl-lab { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; }
+  .pl--bar .pl-field--vol { flex: 1 1 0; max-width: none; display: flex; align-items: center; gap: var(--sp-2); }
+  .pl--bar .pl-field--vol .pl-lab { margin: 0; white-space: nowrap; }
+  .pl--bar .pl-field--vol .pl-lab b { display: none; }
+  .pl--bar .pl-more { display: inline-flex; align-items: center; justify-content: center; order: 5; flex: 0 0 auto; padding: 0 var(--sp-3);
+    background: transparent; border: var(--border) solid var(--line-strong); border-radius: var(--radius); font: 700 var(--fs-label) var(--mono); }
+  .pl--bar .pl-more[aria-expanded="true"] { border-color: var(--paper); }
+  .pl--bar .pl-more::after { content: "▾"; margin-left: var(--sp-2); }
+  .pl--bar .pl-more[aria-expanded="true"]::after { content: "▴"; }
+  .pl--bar .pl-extra { display: none; order: 6; flex: 1 1 100%; flex-wrap: wrap; align-items: end; gap: var(--sp-2) var(--sp-3); }
+  .pl--bar.is-open .pl-extra { display: flex; }
+  .pl--bar .pl-extra .pl-field--amp { flex: 1 1 100%; max-width: none; order: 0; }
+  .pl--bar .pl-extra .pl-source { flex: 1 1 auto; order: 0; }
+  .pl--bar .pl-extra .pl-reset { flex: 0 0 auto; order: 0; }
+  .pl--bar .pl-msg { display: none; }
+  .pl--bar .pl-seg span { padding: 0 var(--sp-2); }
+}
+@media (prefers-reduced-motion: reduce) { .pl-play { transition: none; } }

@@ -17,6 +17,9 @@ export function presetFromState(S, name = 'My preset') {
   };
 }
 
+// Builds a preset from parts: { name, params: { dv_gain: 600, ... }, octave?, drive?, driveType?, loopMode? }.
+export const makePreset = (parts) => ({ format: PRESET_FORMAT, version: PRESET_VERSION, name: 'Preset', ...parts });
+
 // Checks and normalizes a parsed preset. Throws an Error with a readable message.
 export function validatePreset(p) {
   if (!p || typeof p !== 'object' || p.format !== PRESET_FORMAT) throw new Error('This is not a Hothouse Bass Multiband preset.');

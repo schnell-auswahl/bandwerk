@@ -139,3 +139,17 @@ test('transport: same interface as the real ones', async () => {
   assert.equal(ticker, null);
   assert.deepEqual(await t.send('ping'), { ok: false, reply: 'not connected' });
 });
+
+test('physical knobs: K1/K3 act at once, the others need to pick up the stored value first', () => {
+  const p = new DemoPedal(0);
+  p.knob(0, 0.9); assert.equal(p.pm[0], 0.9);
+  p.knob(2, 0.2); assert.equal(p.pm[1], 0.2);
+  // page DRIVE: K2 = gain (stored 0.5), the knob stands at 0.5: caught; moving drags the value
+  p.knob(1, 0.7); assert.equal(p.pm[18], 0.7);
+  // a remote change leaves the knob behind: it must cross / reach the value
+  p.command('set dv_gain 900');
+  assert.equal(state(p).caught & 1, 0);
+  p.knob(1, 0.75); assert.equal(p.pm[18], 0.9, 'not caught yet: no change');
+  p.knob(1, 0.95); assert.equal(p.pm[18], 0.95, 'crossed the stored value: caught, follows');
+  assert.equal(state(p).caught & 1, 1);
+});

@@ -92,6 +92,24 @@ export class DemoPedal {
     this.goToPage(TOGGLE_PAGE[i], now);
     this.rev++;
   }
+  // Physical knob i (0..5 = K1..K6) turned to v (0..1). K1 = master and K3 = crossover act directly;
+  // K2/K4/K5/K6 control the current page's slot once they have picked up its stored value (soft takeover).
+  knob(i, v) {
+    v = clamp(v, 0, 1);
+    const prev = this.kn[i];
+    this.kn[i] = v;
+    if (i === 0) this.pm[PM.master] = v;
+    else if (i === 2) this.pm[PM.xover] = v;
+    else {
+      const s = [1, 3, 4, 5].indexOf(i);
+      if (!this.caught[s]) {
+        const p = this.pickup(s);
+        if (Math.abs(v - p) <= TOL || (prev - p) * (v - p) <= 0) this.caught[s] = true;
+      }
+      if (this.caught[s]) this.slotTargets(s).forEach((t) => { this.pm[t] = v; });
+    }
+    this.rev++;
+  }
   // Physical footswitch (FootswitchLogic, simplified to whole presses).
   footswitch(i, down, now) {
     const s = this.fs[i], o = this.fs[1 - i];
@@ -313,6 +331,7 @@ export class DemoTransport extends EventTarget {
     if (!this.pedal) return;
     if (kind === 'toggle') this.pedal.toggle(i, value, this.now());
     if (kind === 'footswitch') this.pedal.footswitch(i, value, this.now());
+    if (kind === 'knob') this.pedal.knob(i, value);
     this.step();
   }
   async disconnect() {

@@ -1,9 +1,12 @@
 # Studio
 
 The studio is the interactive part of the website: the live signal chain of the
-pedal, an editor for every block, and the pedal itself below it. It runs in the
-browser without any install. Without a pedal it simulates one (demo mode); with
-your pedal connected over USB every change goes straight to the hardware.
+pedal and an editor for every block. It runs in the browser without any install.
+Without a pedal it runs the **virtual pedal** (the firmware's DSP and UI logic
+compiled to WebAssembly, with demo audio, see "Virtual pedal and demo audio");
+with your pedal connected over USB every change goes straight to the hardware.
+The pedal illustration itself, the effect sections and the player are separate
+components that share one *session* (below).
 
 - On the website it sits in the "Try it" section of `index.html`.
 - `site/studio.html` shows only the studio (and is the page the local bridge opens).
@@ -16,7 +19,7 @@ plus text: demo, USB, bridge), the input/output level and the CPU load. Buttons:
 - **Bypass**: global bypass (same as tapping FS1 + FS2 together).
 - **Defaults**: back to the factory settings (asks first; octaver and drive go off).
 - **Connect pedal (USB)**: connects over Web Serial (see below). **Disconnect** when connected.
-- **Demo**: back to the simulated pedal.
+- **Virtual pedal**: back to the virtual pedal (shown while a real pedal or the bridge is in use).
 - **Control** (bridge only): edits from the browser are off until you tick it.
 
 **Signal chain** (main stage). IN → trim → crossover, then the HIGH lane
@@ -44,21 +47,6 @@ detector feeds both octaves.
   sheet at the bottom. Escape or × closes it. Editing in the browser never
   changes the page shown on the pedal.
 
-**Pedal** (below). Works like the hardware:
-
-- Knobs: drag up/down (or focus and use the arrow keys). The pointer is where the
-  real knob stands, the small square is the stored value it has to pick up
-  (soft takeover). Dragging sets the stored value. Click a knob to mark the
-  blocks it controls.
-- Toggle switches: pick a position. The page opens at once; in the demo the
-  setting follows after 300 ms like on the pedal. With a real pedal a dashed
-  outline shows the lever's physical position when the setting was changed from
-  the browser.
-- Footswitches: tap = effect on/off (switching on opens its page), hold = only
-  open the page. The LEDs show the real LED brightness.
-- The knob-page panel next to it lists what K1 … K6 do on the current page and
-  whether each knob has picked up its value; the page chips switch the page.
-
 **Presets**: *Export* saves the current settings as a JSON file, *Import* applies
 one, *Copy share link* puts them into a link (`…#preset=…`). Opening such a link
 offers to apply it. Presets contain the 22 stored values, octaver/drive on/off,
@@ -71,25 +59,28 @@ state changes, pedal messages) and system information.
 
 ## Transports
 
-| | How | Control |
+| `session.kind` | How | Control |
 |---|---|---|
-| Demo | A simulated pedal in the browser (`transport-demo.js`). | always |
-| USB (Web Serial) | Click *Connect pedal*, pick the Daisy Seed. Chrome, Edge or Opera on desktop. | after the handshake |
-| Bridge | The page is served by `tools/live_server.py`, which owns the serial port. For development. | after ticking *Control* |
+| `virtual` | The pedal firmware in the browser (`core/transport-virtual.js` wrapping `audio/virtual-pedal.js`). Until the first Play a small JavaScript simulation (`transport-demo.js`, `session.backend === 'js'`) stands in; the first Play loads the WebAssembly pedal (`backend === 'wasm'`) and carries the settings over. | always |
+| `demo-js` | The JavaScript simulation only, for browsers without WebAssembly or AudioWorklet (no audio). | always |
+| `serial` | Click *Connect pedal*, pick the Daisy Seed. Chrome, Edge or Opera on desktop. | after the handshake |
+| `bridge` | The page is served by `tools/live_server.py`, which owns the serial port. For development. | after ticking *Control* |
 
-`mountStudio(root, { transport: "auto" })` uses the bridge if the page was served
-by it (`GET /state` answers), otherwise the demo. The serial port only opens after
-a click (browsers require a user gesture).
+`createSession({ transport: "auto" })` uses the bridge if the page was served
+by it (`GET /state` answers), otherwise the virtual pedal. The serial port only
+opens after a click (browsers require a user gesture).
 
 **Web Serial details.** The chooser is filtered to the Daisy Seed's USB serial
 port: vendor 0x0483, product 0x5740 (libDaisy `src/usbd/usbd_desc.c`). The port
-is opened at 115200 baud (ignored by USB CDC). Right after opening, the studio
+is opened at 115200 baud (ignored by USB CDC). Right after opening, the session
 sends `hello`; the firmware answers `[CMD] ok hello fw=… proto=1 build=… app=…`.
 No answer within 1.5 s, and none after one retry either, means the pedal runs
-other firmware or an old version of this one: the studio closes the port and
-links to the installer. Unplugging, or `dfu` (update mode), drops back to the
-demo; when the same pedal comes back, the studio reconnects by itself. Only one
-program can use the port: close the bridge, `screen` or a serial monitor first.
+other firmware or an old version of this one: the session closes the port and
+the studio links to the installer. Unplugging, or `dfu` (update mode), drops back
+to the virtual pedal; when the same pedal comes back, the session reconnects by
+itself. Only one program can use the port: close the bridge, `screen` or a
+serial monitor first. With a real pedal connected the demo audio is paused and
+the virtual pedal is parked (it keeps its settings).
 
 The protocol itself (lines, fields, commands) is described in `docs/PROTOCOL.md`.
 
@@ -108,44 +99,140 @@ modules load), opens `studio.html` at `/`, and keeps its API:
 `tools/bm_telemetry.py`), `GET /raw` (raw lines), `GET /state` (latest snapshot),
 `POST /cmd` (one command, answer = the pedal's reply). Useful URL options of
 `studio.html`: `?transport=demo|bridge|auto`, `?bridge=http://host:port`,
-`?compact` (Advanced closed).
+`?compact` (Advanced closed), `?pedal=standin` (use the JavaScript stand-in
+instead of the WebAssembly pedal), `?loops=<manifest url>`.
+
+## Session
+
+One `Session` (`site/js/core/session.js`) per page owns everything the views share:
+the `Store` (state, telemetry, 10 s history, optimistic edits, event log), the
+`CommandQueue`, the active transport and the audio engine. The chain/studio, the
+pedal components, the effect graphs and the player are views on it; they never
+talk to a transport themselves.
+
+```js
+import { createSession } from "./js/core/session.js";
+import { mountStudio } from "./js/studio/main.js";
+import { mountPlayer } from "./js/player/player-view.js";
+
+const session = await createSession({ bridgeUrl, wasmUrl, loopsUrl });   // all optional
+mountStudio(document.getElementById("studio-root"), session, { compact: true });
+mountPlayer(document.getElementById("player-root"), session);
+mountFlasher(root, { enterBootloader: () => session.enterBootloader() });
+```
+
+| API | Meaning |
+|---|---|
+| `session.kind` | `'virtual' \| 'serial' \| 'bridge' \| 'demo-js'`; `session.backend`: `'js' \| 'wasm'` while virtual |
+| `session.store` | the `Store`: `S` (state), `L` / `M` / `SYS` (telemetry), `hist`, `view()`, `log`; events `change`, `telemetry` (also `state`, `live`, `sys`, `log`, `reset`) |
+| `session.view()` | the state for display: last `[S]` plus local edits the pedal has not confirmed yet |
+| `session.command(line)` | one protocol command; optimistic; `Promise<{ ok, reply }>` |
+| `session.commands(lines)` | several commands, `Promise<result[]>` |
+| `session.setParam(name \| index, permille)` | `set`; only the newest value per parameter is sent while dragging (older callers get the newer reply) |
+| `session.setFlag('oct' \| 'drv' \| 'byp', on)` | |
+| `session.setMode('band' \| 'lmode' \| 'dtype' \| 'page', value)` | value = protocol word (`'both'`, `'loop'`, `'fuzz'`, `'oct'`) or index |
+| `session.control` | may the page change settings now (virtual: yes; USB: after hello; bridge: after `session.bridgeControl = true`) |
+| `session.connected` | a real pedal is connected |
+| `session.hardware` | virtual / demo-js only, else `null`: `{ knob(i, v01), toggle(i, 0 \| 1 \| 2), footswitch(i, down) }`, the real gestures of the simulated hardware (pickup, settling, hold) |
+| `session.audio` | the audio engine while `kind === 'virtual'`, else `null`; `session.engine` is the same object but also while a real pedal is connected |
+| `session.startAudio()` | creates the AudioContext and loads the WebAssembly pedal (call it from a click); `engine.play()` does it too |
+| `session.connectSerial()`, `disconnect()`, `enterBootloader()` | Web Serial (`false` from `enterBootloader` if nothing is connected); `disconnect()` returns to the virtual pedal |
+| `session.snapshot()` / `restore(snapshot)` | everything needed to put the pedal back: the 22 values, octaver, drive, drive type, loop mode, band, page, bypass |
+| `session.applyPreset(preset)` | a preset (`presets.js`, `makePreset()` builds one); missing parts stay as they are; rejects invalid presets |
+| `session.resetDemo()` | factory values, effects off, toggles and page as on power-up, loop-FX pedals reset (loop, amp and volume stay) |
+| events | `connection` `{ kind, backend, hello, connected }`, `audio` `{ what }`, `state`, `notice` `{ text, level, code }` (user-facing messages, e.g. `no-hello`, `lost`), `denied` `{ reason }` (a change was refused: `bridge-control` or `not-connected`) |
+
+Data flow: transport → parsed message → `Store` → views render (on change, at
+most once per animation frame). User input → `session.command` → optimistic edit
+in the store (the view reacts at once) → `CommandQueue` (one command at a time,
+newest value per key wins) → transport. The pedal's next `[S]` line confirms the
+edit; unconfirmed edits expire after 1.5 s.
+
+Switching transports (virtual → USB → virtual …) resets the store and the queue.
+The WebAssembly virtual pedal is not disposed while a real pedal is used: its
+transport is parked and keeps the last `[S]`, so it comes back with its own settings.
+
+## Virtual pedal and demo audio
+
+```
+loop player (AudioBufferSourceNode, loop) → loop bus → virtual pedal (AudioWorkletNode) → amp + cab → master → limiter → out
+```
+
+`audio/engine.js` (`session.audio`): the AudioContext (48 kHz, created on the first
+Play), the graph above, and the controls: `play() pause() playing`, `loops loop
+setLoop(id)`, `amps amp setAmp(id)`, `volume setVolume(0..1)`, `loopFx setLoopFx(partial)`
+(the two virtual FX-loop pedals: `drive` = overdrive 1.0 ms, `chorus` 1.8 ms, three
+parameters each), `taps.subscribe('scope' \| 'spectrum', cb)`, `status`, `notice`.
+
+- **Virtual pedal**: `audio/virtual-pedal.js` (`createVirtualPedal(ctx, { wasmUrl })`, see
+  `docs/VIRTUAL.md`). `core/transport-virtual.js` turns it into a transport: lines →
+  parser, commands → `pedal.command()`, `hw`, `setLoopFx` and `taps` are passed on.
+  `audio/virtual-pedal-standin.js` has the same interface backed by the JavaScript
+  simulation (no audio processing): `?pedal=standin`, and used in the tests.
+- **Loops** (`audio/player.js`, `audio/loops.js`): manifest `site/audio/loops.json`,
+  `[{ id, name, file, bpm, gainDb, style, suggestedFor, note? }]` with `file` relative to the manifest.
+  Loops are decoded with `decodeAudioData` when first needed and loop seamlessly
+  (whole bars). Switching waits for the next bar of the playing loop (short
+  crossfade; `setLoop(id, { at: 'now' })` or no `bpm`: immediately). A loop that
+  cannot be loaded is marked "not available"; if none can, the player says
+  "Demo audio not available yet." and nothing else breaks. For development put more
+  loops and a `loops.json` into `site/audio/dev/` (gitignored, tried first on
+  localhost); never commit audio files other than the published loops.
+- **Amp + cab** (`audio/amp.js`): Web Audio nodes only (BiquadFilter, WaveShaper with
+  `oversample: '4x'`, Gain), no impulse responses. DI (no amp), Modern 4×10, Vintage
+  1×15, Rock 8×10: input high-pass at 30–40 Hz, a tone stage, a mild asymmetric tanh
+  saturation (unit small-signal gain), cabinet resonances and a 4th-order roll-off at
+  3–5 kHz. Each voicing is level-matched to DI within ±1 dB (mean over bass notes at
+  −22 … −13 dBFS RMS); the make-up gains are calibrated with the same filter math the
+  tests use. Master volume defaults to −12 dB, followed by a limiter as a safety net.
+- **Player** (`player/player-view.js`, `css/player.css`): `mountPlayer(root, session)` puts a
+  compact Play/Pause + loop picker into `root` (the hero) and adds a sticky bottom bar
+  after the first Play: play/pause, loop, amp/cab, volume, source (Virtual pedal / Your
+  pedal) and Reset demo. On phones the bar shows play, loop and volume and folds the rest
+  into "Amp & source". With a real pedal the demo audio is paused.
+
+### Credits
+
+*Example 1 · Groove* (`site/audio/example-1-groove.flac`) is the project owner's own
+recording (played with a bass instrument plugin), published under the same license as the
+rest of the site content. It was converted to mono, 48 kHz, scaled by −5.9 dB (peak −6 dBFS)
+and stripped of all metadata (FLAC STREAMINFO only).
 
 ## Embedding
 
 ```js
+import { createSession } from "./js/core/session.js";
 import { mountStudio } from "./js/studio/main.js";
-const studio = mountStudio(document.getElementById("studio-root"), { compact: true });
+const session = await createSession();
+const studio = mountStudio(document.getElementById("studio-root"), session, { compact: true });
 studio.addEventListener("connection", (e) => console.log(e.detail.kind, e.detail.hello));
-studio.connected;            // true while a real pedal is connected
+studio.connected;                 // true while a real pedal is connected
 await studio.enterBootloader();   // sends `dfu`, true after "[CMD] ok dfu"
-await studio.disconnect();
+await studio.disconnect();        // back to the virtual pedal
 ```
 
-Include `css/tokens.css` and `css/studio.css`. Everything is scoped under `.studio`.
+Include `css/tokens.css` and `css/studio.css` (and `css/player.css` for the player). Everything is scoped under `.studio` / `.pl`.
 
 ## Architecture
 
-All files are plain ES modules in `site/js/studio/`, no build step:
+All files are plain ES modules in `site/js/`, no build step:
 
 | File | Role |
 |---|---|
-| `main.js` | `mountStudio`, the `Studio` object: transports, command queue, control policy, wiring, presets UI |
-| `mapping.js` | knob → physical value mappings (equal to `firmware/dsp/mapping.h`), parameter table, text formats |
-| `protocol.js` | telemetry parser (port of `tools/bm_telemetry.py`), line reassembly, command builders, `CommandQueue` |
-| `state.js` | `Store` (latest telemetry, 10 s history, optimistic edits, event log), `chainState` (which block is on / off / muted), knob chips |
-| `transport-demo.js` | `DemoPedal`: the firmware's UI state machine, command handler and telemetry from a synthetic bass riff |
-| `transport-serial.js`, `transport-bridge.js` | the real connections (same interface: `connect`, `send`, `disconnect`, `message`/`status` events) |
-| `layout.js` | geometry of the chain: a wide layout and a stacked one for narrow screens (below ~980 px chain width) |
-| `chain.js` | builds the chain (HTML blocks over an SVG wire layer) once per layout; updates only classes, texts and attributes |
-| `editor.js`, `graphs.js` | block editor (popover / bottom sheet) and the canvas graphs it shares with Advanced |
-| `pedal.js`, `advanced.js`, `presets.js`, `dom.js` | pedal + knob-page panel, Advanced panel, presets, small helpers |
-
-Data flow: transport → parsed message → `Store` → render (on change, at most once
-per animation frame) and animate (meters, wire strengths, graphs every frame).
-User input → command list → optimistic edit in the store (the view reacts at
-once) → `CommandQueue` (one command at a time; while dragging only the newest
-value per parameter is sent) → transport. The pedal's next `[S]` line confirms
-the edit; unconfirmed edits expire after 1.5 s.
+| `core/session.js` | `createSession`, `Session`: store, queue, transports, commands, snapshots, audio engine |
+| `core/transport-virtual.js` | the virtual (WebAssembly) pedal as a transport |
+| `audio/engine.js`, `player.js`, `loops.js`, `amp.js` | audio graph and controls, loop player, manifest and loading, amp/cab voicings |
+| `audio/virtual-pedal.js`, `virtual-pedal-worklet.js` | the WebAssembly pedal in an AudioWorklet (`docs/VIRTUAL.md`); `virtual-pedal-standin.js` is the JavaScript stand-in |
+| `player/player-view.js` | `mountPlayer`: hero control and sticky bar |
+| `studio/main.js` | `mountStudio`: chain, editor, Advanced, presets UI, connection bar |
+| `studio/mapping.js` | knob → physical value mappings (equal to `firmware/dsp/mapping.h`), parameter table, text formats |
+| `studio/protocol.js` | telemetry parser (port of `tools/bm_telemetry.py`), line reassembly, command builders, `CommandQueue` |
+| `studio/state.js` | `Store`, `chainState` (which block is on / off / muted), knob chips |
+| `studio/transport-demo.js` | `DemoPedal`: the firmware's UI state machine, command handler and telemetry from a synthetic bass riff (the simulation before the first Play, and `demo-js`) |
+| `studio/transport-serial.js`, `transport-bridge.js` | the real connections (same interface: `connect`, `send`, `disconnect`, `message`/`status` events) |
+| `studio/layout.js`, `chain.js` | geometry of the chain (wide and stacked layouts) and its renderer |
+| `studio/editor.js`, `graphs.js` | block editor (popover / bottom sheet) and the canvas graphs it shares with Advanced |
+| `studio/advanced.js`, `presets.js`, `dom.js` | Advanced panel, presets, small helpers |
 
 ## Tests
 
@@ -156,6 +243,11 @@ node --test 'site/tests/*.test.mjs'      # or: make -C firmware test
 Plain Node (22+), no packages: mappings against the firmware sources, the parser
 against lines built from the firmware's own format strings and from
 `fake_pedal.py`, chain states and layouts, the store, the demo pedal (commands,
-pickup, toggle settling, footswitches, telemetry), the bridge and Web Serial
+pickup, toggle settling, footswitches, knobs, telemetry), the bridge and Web Serial
 transports against mocks (handshake, retry, other firmware), the command queue
-and presets.
+and presets. The session (state, coalescing, snapshot/restore/applyPreset, control
+policy, switching between virtual pedal, USB and bridge with fakes), the virtual
+transport, the player state machine, the loop manifest and the audio engine run
+against a fake Web Audio API (`site/tests/fake-audio.mjs`). The amp voicings are
+tested with the same biquad math the graph uses (coefficients, level match against DI,
+character); checked once against a real `OfflineAudioContext` in Chrome as well.

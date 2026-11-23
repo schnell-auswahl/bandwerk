@@ -115,3 +115,15 @@ test('describeChange', () => {
   assert.deepEqual(describeChange(base, b), ['Page → COMP', 'Drive on', 'Loop mode → Loop Ø', 'Threshold H → −23 dB']);
   assert.deepEqual(describeChange(null, b), []);
 });
+
+test('store: change / telemetry / reset events', () => {
+  const st = new Store(() => 0);
+  const ev = [];
+  ['change', 'telemetry', 'reset'].forEach((t) => st.addEventListener(t, () => ev.push(t)));
+  st.edit(3, 0.5);
+  assert.deepEqual(ev, ['change']);
+  st.apply({ t: 'L', in: -20, out: -20, lo: -30, hi: -30, gr: [0, 0], pf: 0 });
+  assert.deepEqual(ev, ['change', 'telemetry']);
+  st.reset();
+  assert.equal(ev.at(-1), 'reset');
+});
