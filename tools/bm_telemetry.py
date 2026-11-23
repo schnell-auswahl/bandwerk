@@ -1,6 +1,6 @@
 """Telemetry of the BassMultiband firmware (dev and release builds, serial protocol
 v1): turns one serial log line into a message for the browser live view.
-Format = firmware (bass_multiband.cpp, BM_STATE_FMT, BM_SYS_FMT and PrintLiveFrame:
+Format = firmware (ui/telemetry.h:
 [L], [M], [S], [SYS]) and docs/PROTOCOL.md; keep all three in sync.
 Standard library only.
 """

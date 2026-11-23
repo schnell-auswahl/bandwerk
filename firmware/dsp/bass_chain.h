@@ -102,6 +102,16 @@ struct ChainMeters {
   float loop_delay = 0.0f;   // current loop latency compensation in samples (now)
 };
 
+// Instantaneous signals for scope/spectrum displays. Only recorded when the
+// code is built with BM_CHAIN_TAPS (the virtual pedal); the firmware does not
+// define it, so these stores are not part of the firmware.
+struct ChainTaps {
+  float low = 0.0f;   // low band after the crossover
+  float high = 0.0f;  // high band after the crossover
+  float sub = 0.0f;   // -1 octave as added to the low sum
+  float up = 0.0f;    // +1 octave as added to the high sum
+};
+
 class BassChain {
  public:
   // How often the control-rate work (crossover coefficients) is done.
@@ -239,6 +249,12 @@ class BassChain {
     const float sum_low = low_looped * dry + sub_part;
     const float sum_high = high_looped * dry + up_part;
     PeakHold(&meters_.oct_down, sub_part);
+#ifdef BM_CHAIN_TAPS
+    taps_.low = low;
+    taps_.high = high;
+    taps_.sub = sub_part;
+    taps_.up = up_part;
+#endif
     PeakHold(&meters_.oct_up, up_part);
     PeakHold(&meters_.sum_low, sum_low);
     PeakHold(&meters_.sum_high, sum_high);
@@ -286,6 +302,10 @@ class BassChain {
   }
 
   float crossover_hz() const { return applied_fc_; }
+#ifdef BM_CHAIN_TAPS
+  // Signals of the last processed sample.
+  const ChainTaps& taps() const { return taps_; }
+#endif
   // 0 = low band untouched, 1 = fuzz split fully engaged (tests, telemetry)
   float fuzz_split_amount() const { return fuzz_amt_.value(); }
 
@@ -387,6 +407,9 @@ class BassChain {
   ChainParams last_;
   bool have_last_ = false;
   ChainMeters meters_;
+#ifdef BM_CHAIN_TAPS
+  ChainTaps taps_;
+#endif
   Compressor comp_[2];  // [0] high, [1] low
   Octaver octaver_;
   DriveStage drive_;

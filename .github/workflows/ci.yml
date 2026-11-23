@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Emscripten for the virtual pedal (firmware/virtual); the same version builds the site (pages.yml).
+  EMSDK_VERSION: '7.0.1'
+
 jobs:
   firmware:
     name: Build firmware
@@ -81,5 +85,36 @@ jobs:
       - name: Unit tests (g++), studio and installer tests (node)
         run: |
           make -C firmware/tests run
+          make -C firmware/virtual unit
           node --test 'site/tests/*.test.mjs'
           node --test 'site/tests/flasher/*.test.mjs'
+
+  # The firmware's DSP and UI logic compiled to WebAssembly (docs/VIRTUAL.md): build it,
+  # run the native unit tests and check that native and wasm builds agree.
+  virtual:
+    name: Virtual pedal (WebAssembly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Emscripten ${{ env.EMSDK_VERSION }}
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build the wasm module, run the unit tests and the native-vs-wasm parity test
+        run: |
+          emcc --version | head -1
+          make -C firmware/virtual test
+
+      - name: Upload the wasm module
+        uses: actions/upload-artifact@v4
+        with:
+          name: virtual_pedal-wasm
+          path: site/wasm/virtual_pedal.wasm
+          if-no-files-found: error
