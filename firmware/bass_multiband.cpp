@@ -30,6 +30,7 @@
 #include "ui/loop_calibration.h"
 #include "ui/settings.h"
 #include "ui/settings_store.h"
+#include "ui/telemetry.h"
 #include "ui/ui_controller.h"
 #include "version.h"
 // BM_REMOTE (default on, `make BM_REMOTE=0` strips it): USB serial link with
@@ -282,8 +283,6 @@ void ReadInputs(bm::UiInputs* in) {
 }
 
 #ifdef BM_REMOTE
-int Permille(float v) { return static_cast<int>(v * 1000.0f + 0.5f); }
-
 // Non-blocking USB link to the host (log out, commands in): devkit/firmware.
 // Never waits for the host, so it is safe on stage without a computer.
 devkit::DevLink dev_log;
@@ -306,110 +305,51 @@ bm::BuildInfo MakeBuildInfo() {
   return b;
 }
 
-// Machine-readable state line for the live view (tools/live_server.py).
-// pg/bd/lm/dt = page, band, loop mode, drive type (enum values), oc/dr/by =
-// octave on, drive on, bypass, ca = caught mask, tp = takeover pending,
-// pm = all stored parameters in permille: master, crossover, comp high
-// (thresh, ratio, release, dry/wet), comp low (same), loop (send, mix,
-// return, trim), octave (lvl-1, dry/wet, lvl+1, subtone), drive (gain,
-// band mix, level, tone).
-#define BM_STATE_FMT                                                      \
-  "[S] pg=%d bd=%d lm=%d dt=%d oc=%d dr=%d by=%d ca=%d tp=%d "            \
-  "pm=%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\r\n"
-#define BM_STATE_ARGS(p)                                                   \
-  static_cast<int>(ui.page()), static_cast<int>(ui.band()),               \
-      static_cast<int>(ui.loop_mode()), static_cast<int>(ui.drive_type()), \
-      (p).octave_on ? 1 : 0, (p).drive_on ? 1 : 0, ui.bypass() ? 1 : 0,   \
-      ui.caught_mask(), ui.takeover_pending() ? 1 : 0,                    \
-      Permille((p).master), Permille((p).crossover),                      \
-      Permille((p).comp[0].threshold), Permille((p).comp[0].ratio),       \
-      Permille((p).comp[0].release), Permille((p).comp[0].dry_wet),       \
-      Permille((p).comp[1].threshold), Permille((p).comp[1].ratio),       \
-      Permille((p).comp[1].release), Permille((p).comp[1].dry_wet),       \
-      Permille((p).loop_send), Permille((p).loop_mix),                    \
-      Permille((p).loop_return), Permille((p).loop_trim),                 \
-      Permille((p).oct_level_down), Permille((p).oct_dry_wet),            \
-      Permille((p).oct_level_up), Permille((p).oct_sub_tone),             \
-      Permille((p).drive_gain), Permille((p).drive_band_mix),             \
-      Permille((p).drive_level), Permille((p).drive_tone)
+// The telemetry text itself (formats, field order, docs) lives in
+// ui/telemetry.h, shared with the virtual pedal. Each message is formatted into
+// one buffer and handed to the USB link in one piece, as before.
+bool SendTelemetry(const bm::telemetry::Out& o) { return dev_log.Print("%s", o.c_str()); }
 
-// Once per second: sample rate, block size, CPU load of the audio callback
-// (average and peak in 0.1 %), main loop passes in the last second, loop
-// latency (0.01 samples), automatic loop measurement tries and last result.
-#define BM_SYS_FMT \
-  "[SYS] sr=%d block=%d cpu avg=%d.%d%% max=%d.%d%% loops=%d lat=%d ltry=%d lres=%d\r\n"
-#define BM_SYS_ARGS(loops)                                                   \
-  static_cast<int>(hw.AudioSampleRate()), static_cast<int>(hw.AudioBlockSize()), \
-      static_cast<int>(cpu_load.GetAvgCpuLoad() * 100.0f),                   \
-      static_cast<int>(cpu_load.GetAvgCpuLoad() * 1000.0f) % 10,             \
-      static_cast<int>(cpu_load.GetMaxCpuLoad() * 100.0f),                   \
-      static_cast<int>(cpu_load.GetMaxCpuLoad() * 1000.0f) % 10,             \
-      static_cast<int>(loops),                                               \
-      static_cast<int>(ui.params().loop_latency * 100.0f + 0.5f), loop_cal.tries(), \
-      loop_cal.last_result()
-
-// Level in tenths of a dB (-1200 = silence).
-int DbX10(float peak) {
-  return peak > 1.0e-6f ? static_cast<int>(200.0f * log10f(peak)) : -1200;
-}
-
-// Live telemetry, 20 times per second: levels, raw controls, LEDs, and the
-// compressor gain reduction (gr = high, low; tenths of a dB, >= 0). kn = the
-// calibrated pots (what the UI sees), kr = the raw readings, pf = the pitch the
-// octaver tracks in tenths of a Hz (0 = no note).
-// [M] = levels along the chain for the signal-chain view (peaks in 0.1 dB,
-// see ChainMeters): ch/cl compressor outputs, sd send (OUT R), rt return (IN R,
-// raw), lp loop mix out, ll low band delayed, up/sb octaves as added to the
-// sums, sh/sl sums, ff fuzz feed, do drive out, lw low band out, pc before the
-// soft clip, pr after it; og octaver gate, dl loop delay in 0.01 samples,
-// el = loop mode the chain really runs (0 while the latency is measured).
+// Live telemetry, 20 times per second ([L] and [M]).
 void PrintLiveFrame(const bm::UiInputs& in) {
   bm::ChainMeters m;
   chain.TakeMeters(&m);
-  dev_log.Print(
-      "[L] in=%d out=%d lo=%d hi=%d kn=%d,%d,%d,%d,%d,%d sw=%d,%d,%d fs=%d,%d ld=%d,%d gr=%d,%d kr=%d,%d,%d,%d,%d,%d pf=%d\r\n"
-      "[M] ch=%d cl=%d sd=%d rt=%d lp=%d ll=%d up=%d sb=%d sh=%d sl=%d ff=%d do=%d lw=%d pc=%d pr=%d og=%d dl=%d el=%d\r\n",
-      DbX10(m.in), DbX10(m.out), DbX10(m.low), DbX10(m.high),
-      Permille(in.knob[0]), Permille(in.knob[1]), Permille(in.knob[2]),
-      Permille(in.knob[3]), Permille(in.knob[4]), Permille(in.knob[5]),
-      static_cast<int>(in.toggle[0]), static_cast<int>(in.toggle[1]),
-      static_cast<int>(in.toggle[2]), ui.footswitch_down(0) ? 1 : 0,
-      ui.footswitch_down(1) ? 1 : 0, Permille(ui.led(0)), Permille(ui.led(1)),
-      static_cast<int>(m.gr_high * 10.0f + 0.5f), static_cast<int>(m.gr_low * 10.0f + 0.5f),
-      Permille(g_raw_knob[0]), Permille(g_raw_knob[1]), Permille(g_raw_knob[2]),
-      Permille(g_raw_knob[3]), Permille(g_raw_knob[4]), Permille(g_raw_knob[5]),
-      static_cast<int>(m.pitch_hz * 10.0f + 0.5f),
-      DbX10(m.comp_high), DbX10(m.comp_low), DbX10(m.send), DbX10(m.ret),
-      DbX10(m.loop_out), DbX10(m.low_delayed), DbX10(m.oct_up), DbX10(m.oct_down),
-      DbX10(m.sum_high), DbX10(m.sum_low), DbX10(m.fuzz_feed), DbX10(m.drive_out),
-      DbX10(m.low_out), DbX10(m.pre_clip), DbX10(m.processed), m.gate ? 1 : 0,
-      static_cast<int>(m.loop_delay * 100.0f + 0.5f), static_cast<int>(g_shared.loop_mode));
+  char text[bm::telemetry::kBufferSize];
+  bm::telemetry::Out o(text, sizeof text);
+  bm::telemetry::AppendLive(o, in, ui, m, g_raw_knob, static_cast<int>(g_shared.loop_mode));
+  SendTelemetry(o);
+}
+
+// The [SYS] fields from the hardware and the loop calibration.
+bm::telemetry::SysInfo MakeSysInfo(uint32_t loops) {
+  bm::telemetry::SysInfo s;
+  s.sample_rate = static_cast<int>(hw.AudioSampleRate());
+  s.block_size = static_cast<int>(hw.AudioBlockSize());
+  s.cpu_avg = cpu_load.GetAvgCpuLoad();
+  s.cpu_max = cpu_load.GetMaxCpuLoad();
+  s.loops = loops;
+  s.loop_latency = ui.params().loop_latency;
+  s.loop_tries = loop_cal.tries();
+  s.loop_result = loop_cal.last_result();
+  return s;
 }
 
 #ifdef BM_DEV
 // Two human readable lines plus the state line whenever the UI state changed.
 bool PrintUiState() {
-  const bm::Params& p = ui.params();
-  return dev_log.Print(
-      "[UI] page=%s band=%s loop=%s drive=%s oct=%d drv=%d byp=%d\r\n"
-      "[UI] catch=%d%d%d%d M=%d X=%d %s=%d %s=%d %s=%d %s=%d\r\n" BM_STATE_FMT,
-      bm::PageName(ui.page()), bm::BandName(ui.band()),
-      bm::LoopModeName(ui.loop_mode()), bm::DriveTypeName(ui.drive_type()),
-      p.octave_on ? 1 : 0, p.drive_on ? 1 : 0, ui.bypass() ? 1 : 0,
-      (ui.caught_mask() >> 0) & 1, (ui.caught_mask() >> 1) & 1,
-      (ui.caught_mask() >> 2) & 1, (ui.caught_mask() >> 3) & 1,
-      Permille(p.master), Permille(p.crossover),
-      bm::SlotName(ui.page(), 0), Permille(ui.StoredSlotValue(0)),
-      bm::SlotName(ui.page(), 1), Permille(ui.StoredSlotValue(1)),
-      bm::SlotName(ui.page(), 2), Permille(ui.StoredSlotValue(2)),
-      bm::SlotName(ui.page(), 3), Permille(ui.StoredSlotValue(3)),
-      BM_STATE_ARGS(p));
+  char text[bm::telemetry::kBufferSize];
+  bm::telemetry::Out o(text, sizeof text);
+  bm::telemetry::AppendUiLines(o, ui);
+  bm::telemetry::AppendState(o, ui);
+  return SendTelemetry(o);
 }
 #else
 // Release: only the machine-readable state line.
 bool PrintUiState() {
-  const bm::Params& p = ui.params();
-  return dev_log.Print(BM_STATE_FMT, BM_STATE_ARGS(p));
+  char text[bm::telemetry::kBufferSize];
+  bm::telemetry::Out o(text, sizeof text);
+  bm::telemetry::AppendState(o, ui);
+  return SendTelemetry(o);
 }
 #endif  // BM_DEV
 #endif  // BM_REMOTE
@@ -657,28 +597,17 @@ int main() {
     }
 
     if (now - last_report >= 1000 && dev_log.CanPrint()) {
+      char text[bm::telemetry::kBufferSize];
+      bm::telemetry::Out o(text, sizeof text);
+      bm::telemetry::AppendSys(o, MakeSysInfo(loop_count));
 #ifdef BM_DEV
-      // Input peaks in dBFS, raw knobs in permille, raw toggles
-      // (0 = up, 1 = middle, 2 = down), raw footswitches (1 = pressed).
-      auto peak_db = [](float p) {
-        return p > 1.0e-5f ? static_cast<int>(20.0f * log10f(p)) : -100;
-      };
-      const int in_l = peak_db(g_in_peak[0]);
-      const int in_r = peak_db(g_in_peak[1]);
-      // Integer output only: printf float support is not linked in.
-      const bool printed = dev_log.Print(
-          BM_SYS_FMT
-          "[RAW] in L=%d R=%d dBFS | K %d %d %d %d %d %d | S %d %d %d | F %d %d\r\n"
-          BM_STATE_FMT,
-          BM_SYS_ARGS(loop_count), in_l, in_r, Permille(in.knob[0]), Permille(in.knob[1]),
-          Permille(in.knob[2]), Permille(in.knob[3]), Permille(in.knob[4]),
-          Permille(in.knob[5]), static_cast<int>(in.toggle[0]),
-          static_cast<int>(in.toggle[1]), static_cast<int>(in.toggle[2]),
-          in.fs[0] ? 1 : 0, in.fs[1] ? 1 : 0, BM_STATE_ARGS(ui.params()));
-#else
-      const bool printed =
-          dev_log.Print(BM_SYS_FMT BM_STATE_FMT, BM_SYS_ARGS(loop_count), BM_STATE_ARGS(ui.params()));
+      // Input peaks, raw knobs, raw toggles and footswitches. Integer output
+      // only: printf float support is not linked in.
+      bm::telemetry::AppendRaw(o, bm::telemetry::PeakDb(g_in_peak[0]),
+                               bm::telemetry::PeakDb(g_in_peak[1]), in);
 #endif
+      bm::telemetry::AppendState(o, ui);
+      const bool printed = SendTelemetry(o);
       if (printed) {
         last_report = now;
         loop_count = 0;

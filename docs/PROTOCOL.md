@@ -4,8 +4,8 @@ This is the reference for everything that talks to the pedal over USB: the web s
 local bridge (`tools/live_server.py`), `tools/pedal_ctl.py` and `tools/fake_pedal.py`.
 Protocol version **1**; firmware version and protocol version live in `firmware/version.h`.
 
-The firmware side is `firmware/bass_multiband.cpp` (`BM_STATE_FMT`, `BM_SYS_FMT`,
-`PrintLiveFrame`) and `firmware/ui/dev_commands.h` (commands). `tools/bm_telemetry.py` is the
+The firmware side is `firmware/ui/telemetry.h` (the text of every line, shared with the virtual
+pedal, see [VIRTUAL.md](VIRTUAL.md)) and `firmware/ui/dev_commands.h` (commands). `tools/bm_telemetry.py` is the
 reference parser. When a format changes, change the firmware, this file, the parser,
 `tools/fake_pedal.py` and the studio together, and bump `BM_PROTO_VERSION` if old hosts would
 misread it.
