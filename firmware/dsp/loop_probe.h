@@ -55,43 +55,75 @@ class LoopProbe {
   }
 
   LoopProbeResult Analyze() const {
-    LoopProbeResult r;
-    double ss = 0.0, rr = 0.0;
-    for (int n = 0; n < kBurst; ++n) {
-      const double s = Burst(n);
-      ss += s * s;
+    Analysis a;
+    a.Begin(*this);
+    while (!a.Step(*this, kMaxLag)) {
     }
-    for (int n = 0; n < kRecord; ++n) rr += static_cast<double>(rec_[n]) * rec_[n];
-    r.return_rms_db = 10.0f * log10f(static_cast<float>(rr / kRecord) + 1.0e-20f);
-    double best = 0.0;
-    int best_lag = 0;
-    double c_prev = 0.0, c_next = 0.0;
-    for (int lag = 0; lag < kMaxLag; ++lag) {
-      const double c = Corr(lag);
-      if (fabs(c) > fabs(best)) {
-        best = c;
-        best_lag = lag;
-      }
-    }
-    if (best_lag > 0) c_prev = Corr(best_lag - 1);
-    if (best_lag < kMaxLag - 1) c_next = Corr(best_lag + 1);
-    // Energy of the return over the burst window at the best lag.
-    double rw = 0.0;
-    for (int n = 0; n < kBurst; ++n) {
-      const double v = rec_[n + best_lag];
-      rw += v * v;
-    }
-    r.coef = static_cast<float>(fabs(best) / sqrt(ss * rw + 1.0e-30));
-    r.found = r.coef >= kMinCoef;
-    r.inverted = best < 0.0;
-    r.gain_db = 10.0f * log10f(static_cast<float>(rw / ss) + 1.0e-12f);
-    // Parabolic interpolation of |c| around the peak for a fractional lag.
-    const double a = fabs(c_prev), b = fabs(best), c = fabs(c_next);
-    const double den = a - 2.0 * b + c;
-    const double frac = (best_lag > 0 && best_lag < kMaxLag - 1 && den < 0.0) ? 0.5 * (a - c) / den : 0.0;
-    r.lag = static_cast<float>(best_lag + frac);
-    return r;
+    return a.Result(*this);
   }
+
+  // The same analysis in slices, for hosts with a hard real-time budget per
+  // call (the virtual pedal runs it inside an audio callback). Analyze() above
+  // is built on it, so the result is the same however it is sliced:
+  //   Analysis a;  a.Begin(probe);  while (!a.Step(probe, 16)) {}  a.Result(probe);
+  class Analysis {
+   public:
+    void Begin(const LoopProbe& p) {
+      ss_ = 0.0;
+      double rr = 0.0;
+      for (int n = 0; n < kBurst; ++n) {
+        const double s = Burst(n);
+        ss_ += s * s;
+      }
+      for (int n = 0; n < kRecord; ++n) rr += static_cast<double>(p.rec_[n]) * p.rec_[n];
+      return_rms_db_ = 10.0f * log10f(static_cast<float>(rr / kRecord) + 1.0e-20f);
+      best_ = 0.0;
+      best_lag_ = 0;
+      lag_ = 0;
+    }
+    // Correlates up to `max_lags` more lags; true when all lags are done.
+    bool Step(const LoopProbe& p, int max_lags) {
+      for (; max_lags > 0 && lag_ < kMaxLag; --max_lags, ++lag_) {
+        const double c = p.Corr(lag_);
+        if (fabs(c) > fabs(best_)) {
+          best_ = c;
+          best_lag_ = lag_;
+        }
+      }
+      return lag_ >= kMaxLag;
+    }
+    LoopProbeResult Result(const LoopProbe& p) const {
+      LoopProbeResult r;
+      r.return_rms_db = return_rms_db_;
+      double c_prev = 0.0, c_next = 0.0;
+      if (best_lag_ > 0) c_prev = p.Corr(best_lag_ - 1);
+      if (best_lag_ < kMaxLag - 1) c_next = p.Corr(best_lag_ + 1);
+      // Energy of the return over the burst window at the best lag.
+      double rw = 0.0;
+      for (int n = 0; n < kBurst; ++n) {
+        const double v = p.rec_[n + best_lag_];
+        rw += v * v;
+      }
+      r.coef = static_cast<float>(fabs(best_) / sqrt(ss_ * rw + 1.0e-30));
+      r.found = r.coef >= kMinCoef;
+      r.inverted = best_ < 0.0;
+      r.gain_db = 10.0f * log10f(static_cast<float>(rw / ss_) + 1.0e-12f);
+      // Parabolic interpolation of |c| around the peak for a fractional lag.
+      const double a = fabs(c_prev), b = fabs(best_), c = fabs(c_next);
+      const double den = a - 2.0 * b + c;
+      const double frac =
+          (best_lag_ > 0 && best_lag_ < kMaxLag - 1 && den < 0.0) ? 0.5 * (a - c) / den : 0.0;
+      r.lag = static_cast<float>(best_lag_ + frac);
+      return r;
+    }
+
+   private:
+    double ss_ = 0.0;
+    double best_ = 0.0;
+    int best_lag_ = 0;
+    int lag_ = 0;
+    float return_rms_db_ = -120.0f;
+  };
 
  private:
   // Deterministic white noise with soft 64-sample edges.

@@ -8,7 +8,7 @@ measurement rig). For a short overview see the [README](../README.md); the USB s
 
 | Folder | Content |
 |---|---|
-| `firmware/` | The pedal firmware: `bass_multiband.cpp` (the only file that touches hardware), `dsp/` (hardware-free DSP classes), `ui/` (hardware-free UI logic), `tests/` (host unit tests), `Makefile` |
+| `firmware/` | The pedal firmware: `bass_multiband.cpp` (the only file that touches hardware), `dsp/` (hardware-free DSP classes), `ui/` (hardware-free UI logic, including the telemetry text), `tests/` (host unit tests), `virtual/` (the same code as a WebAssembly "virtual pedal", see [VIRTUAL.md](VIRTUAL.md)), `Makefile` |
 | `devkit/` | Generic development tools for Daisy / Hothouse projects (non-blocking USB link, test runner, serial bridge, audio rig). See [devkit/README.md](../devkit/README.md) |
 | `tools/` | Project-specific tooling on top of the devkit: flashing script, telemetry parser, live view server, parameter names, guided measurements |
 | `site/` | Project web page (also hosts the live view) |
@@ -131,6 +131,10 @@ macOS's make 3.81 only compares modification times with 1 s resolution.
 
 Warnings are errors in the tests (`-Wall -Wextra -Werror`). The firmware build should stay free of new warnings, too.
 
+The virtual pedal (`firmware/virtual`) has its own C++ tests (`make -C firmware/virtual unit`, also run by `make -C firmware test`)
+and, with Emscripten installed, `make -C firmware/virtual test` also builds the wasm module and runs the native-vs-wasm parity
+test; see [VIRTUAL.md](VIRTUAL.md).
+
 ## Design rules for the firmware
 
 - Audio callback: no heap allocation, no `printf`, no flash/QSPI access, everything static. Block size 4 samples at 48 kHz.
@@ -210,8 +214,8 @@ Master and crossover keep the remote value until their knob is moved (the crosso
 
 ### Telemetry lines
 
-All numbers are integers (no float printf is linked). The format lives in `bass_multiband.cpp` (`BM_STATE_FMT`, `BM_SYS_FMT` and
-`PrintLiveFrame`); [PROTOCOL.md](PROTOCOL.md) documents every field, `tools/bm_telemetry.py` parses it, and `tools/fake_pedal.py` and the
+All numbers are integers (no float printf is linked). The format lives in `firmware/ui/telemetry.h` (hardware-free, shared by the firmware and the
+virtual pedal; `firmware/tests/test_telemetry.cpp` pins the exact text); [PROTOCOL.md](PROTOCOL.md) documents every field, `tools/bm_telemetry.py` parses it, and `tools/fake_pedal.py` and the
 web pages must match. When you change the format, change all of them.
 
 | Line | Rate | Content |

@@ -61,6 +61,7 @@ include $(SYSTEM_FILES_DIR)/Makefile
 .PHONY: test
 test:
 	$(MAKE) -C tests run
+	$(MAKE) -C virtual unit
 	@if command -v node >/dev/null 2>&1; then node --test '../site/tests/*.test.mjs'; else echo "node not found: skipping the studio tests (site/tests)"; fi
 
 # Release build for users: no dev extras, remote link included, BOOT_SRAM layout (program in

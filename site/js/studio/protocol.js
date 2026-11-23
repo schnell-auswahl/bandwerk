@@ -3,8 +3,8 @@
 //
 // parseLine() is a port of tools/bm_telemetry.py (the bridge sends the Python
 // result to the browser, the Web Serial and demo transports use this one);
-// both must give the same messages. Formats: firmware/bass_multiband.cpp
-// (PrintLiveFrame, BM_STATE_FMT, [SYS]).
+// both must give the same messages. Formats: firmware/ui/telemetry.h
+// ([L], [M], [S], [SYS]).
 
 import { BAND_CMDS, DRIVE_CMDS, LOOP_CMDS, PAGE_CMDS, permille } from './mapping.js';
 
