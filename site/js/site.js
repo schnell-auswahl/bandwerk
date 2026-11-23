@@ -150,7 +150,7 @@ async function mountAll() {
       if (!session) throw new Error("no session");
       const mod = await import("./studio/main.js");
       studioRoot.replaceChildren();
-      mod.mountStudio(studioRoot, session, { compact: true });
+      window.hothouse.studio = mod.mountStudio(studioRoot, session, { compact: true });
     } catch (err) {
       console.warn("Studio not available:", err);
       placeholder(studioRoot, {
@@ -159,6 +159,20 @@ async function mountAll() {
         text: "This copy of the page doesn’t include the studio module. Meanwhile, the deep dives below explain every block of the chain.",
         link: { href: "#effects", text: "Read about the effects" },
       });
+    }
+  }
+
+  const pedalRoot = document.getElementById("pedal-root");
+  if (pedalRoot) {
+    try {
+      if (!session) throw new Error("no session");
+      const mod = await import("./pedal/pedal-view.js");
+      mod.mountPedal(pedalRoot, session, {
+        // a click on a knob marks the blocks it controls in the studio chain
+        onKnobFocus: (k) => { const st = window.hothouse && window.hothouse.studio; if (st && st.hlKnob !== k) st.highlightKnob(k); },
+      });
+    } catch (err) {
+      console.warn("Pedal not available (showing the picture):", err);
     }
   }
 
