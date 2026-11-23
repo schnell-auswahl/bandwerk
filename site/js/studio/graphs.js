@@ -10,7 +10,7 @@ import { loopDelay } from './chain.js';
 
 const font = (C, px) => `${px}px ${C.font}`;
 
-function grid(g, C, r, xs, ys, fx, fy, labels = true, px = 10) {
+export function grid(g, C, r, xs, ys, fx, fy, labels = true, px = 10) {
   g.lineWidth = 1; g.font = font(C, px); g.fillStyle = C.mute;
   for (const v of xs) { const x = fx(v); g.strokeStyle = C.line; g.beginPath(); g.moveTo(x, r.y); g.lineTo(x, r.y + r.h); g.stroke(); }
   for (const v of ys) {
@@ -18,7 +18,7 @@ function grid(g, C, r, xs, ys, fx, fy, labels = true, px = 10) {
     if (labels) { g.textAlign = 'right'; g.fillText(String(v).replace('-', '−'), r.x - 4, y + 3); g.textAlign = 'left'; }
   }
 }
-function line(g, pts, col, lw = 2, dash = []) {
+export function line(g, pts, col, lw = 2, dash = []) {
   g.strokeStyle = col; g.lineWidth = lw; g.setLineDash(dash); g.beginPath();
   pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
   g.stroke(); g.setLineDash([]);
