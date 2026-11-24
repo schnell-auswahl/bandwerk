@@ -19,7 +19,9 @@ const MIN_LEAD_S = 0.03;              // never schedule a switch closer than thi
 
 export class LoopPlayer extends EventTarget {
   // loops: manifest entries (loops.js); load(loop) -> Promise<AudioBuffer>; out: AudioNode
-  constructor(ctx, out, { loops = [], load, timers = { set: setTimeout, clear: clearTimeout } } = {}) {
+  // The default timers wrap setTimeout/clearTimeout: called as `this.timers.set(...)` the bare browser
+  // functions get the wrong `this` and throw "Illegal invocation" (pause, loop switch).
+  constructor(ctx, out, { loops = [], load, timers = { set: (f, ms) => setTimeout(f, ms), clear: (id) => clearTimeout(id) } } = {}) {
     super();
     this.ctx = ctx; this.out = out; this.load = load; this.timers = timers;
     this.loops = loops;

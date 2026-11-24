@@ -322,3 +322,19 @@ test('engine: no loops -> "Demo audio not available yet."', async () => {
   assert.equal(e2.status, 'unavailable'); assert.match(e2.notice, /not available yet/);
   assert.equal(e2.loops[0].available, false);
 });
+
+// Regression: the default timers must call setTimeout/clearTimeout unbound. Browsers throw
+// "Illegal invocation" when they get the timers object as `this` (node does not, hence the probe).
+test('player: default timers call setTimeout and clearTimeout without a foreign `this`', () => {
+  const origSet = globalThis.setTimeout, origClear = globalThis.clearTimeout;
+  const seen = [];
+  globalThis.setTimeout = function (f, ms) { seen.push(this); return 1; };
+  globalThis.clearTimeout = function (id) { seen.push(this); };
+  try {
+    const p = new LoopPlayer(new FakeAudioContext(), {}, { loops: [] });
+    p.timers.set(() => {}, 10);
+    p.timers.clear(1);
+  } finally { globalThis.setTimeout = origSet; globalThis.clearTimeout = origClear; }
+  assert.equal(seen.length, 2);
+  for (const t of seen) assert.ok(t === undefined || t === globalThis, 'timer called with a foreign this');
+});
