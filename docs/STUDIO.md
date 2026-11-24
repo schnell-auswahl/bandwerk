@@ -191,6 +191,38 @@ parameters each), `taps.subscribe('scope' \| 'spectrum', cb)`, `status`, `notice
   pedal) and Reset demo. On phones the bar shows play, loop and volume and folds the rest
   into "Amp & source". With a real pedal the demo audio is paused.
 
+### Live input
+
+The visitor can play their own bass through the virtual pedal instead of the loop (`audio/live-input.js`,
+`engine.live`). Only one source is active at a time (`engine.source`: `'loop'` | `'live'`).
+
+```
+getUserMedia (echo cancellation, noise suppression, AGC off) → MediaStreamAudioSourceNode → channel splitter
+  → select A (input 1) / select B (input 2) → input gain (mono) → loop bus → virtual pedal → amp + cab → master → limiter
+                                                           └→ analyser (level meter)
+```
+
+The input gain feeds the same `loopBus` as the loop player, so it is processed exactly like the loop.
+Additive engine API:
+
+- `setSource('live' | 'loop')`, `startLive({ deviceId? })`, `source`, `liveSupported`; `play()` always
+  takes the loop (and stops the live input), `pause()` stops either source. `setSuspended(true)` (real
+  pedal connected) stops the live input; starting it is refused meanwhile (`live.error.code === 'suspended'`).
+  `startLive()` must be called from a user gesture; it pauses the loop and, on failure, leaves the live
+  input off (the loop still works). Events: `'source'`, `'live'`.
+- `latency`: `{ baseMs, outputMs, totalMs }` from `AudioContext.baseLatency` + `outputLatency` (the
+  interface's own input buffer is not included), `null` before the audio started.
+- `live` (`LiveInput`): `state` (`'off' | 'starting' | 'on'`), `error` (`{ code, message }`; codes
+  `unsupported insecure denied no-device busy lost suspended error`), `devices` / `refreshDevices()`
+  (labels appear after permission), `setDevice(id)` (restarts), `channel` / `setChannel('1' | '2' | 'mix')`
+  (mono devices only offer Input 1; "mixed" is the average), `gainDb` / `setGainDb(-24 … 24)`,
+  `readLevel()` → `{ peakDb, clip }` (peak dBFS after the input gain; clip at ≥ −0.5 dBFS, held 1.5 s),
+  `stop()`. Stopping fades the gain out, stops every MediaStream track (the browser's recording indicator
+  goes off) and disconnects the nodes. A track `ended` event (device unplugged) stops the input with
+  `error.code === 'lost'`.
+- The player UI has an Input choice (Loop / Live input), a one-time headphone notice (per page visit), and
+  while live: device, channel, input gain, level meter with CLIP indication and the latency estimate.
+
 ### Credits
 
 *Example 1 · Groove* (`site/audio/example-1-groove.flac`) is the project owner's own
@@ -289,6 +321,7 @@ transports against mocks (handshake, retry, other firmware), the command queue
 and presets. The session (state, coalescing, snapshot/restore/applyPreset, control
 policy, switching between virtual pedal, USB and bridge with fakes), the virtual
 transport, the player state machine, the loop manifest and the audio engine run
-against a fake Web Audio API (`site/tests/fake-audio.mjs`). The amp voicings are
+against a fake Web Audio API and fake getUserMedia (`site/tests/fake-audio.mjs`; live input in
+`live-input.test.mjs`). The amp voicings are
 tested with the same biquad math the graph uses (coefficients, level match against DI,
 character); checked once against a real `OfflineAudioContext` in Chrome as well.

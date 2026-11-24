@@ -6,13 +6,15 @@
 //
 // The AudioContext (48 kHz) is created on the first user gesture (the first play()). Until then the
 // engine only knows the loop manifest. The virtual pedal is attached by the session (setPedal()).
-// Alternative sources (live input) can later feed the same loopBus.
+// The live input (live-input.js, `engine.live`) feeds the same loopBus; only one source is active at a time
+// (`source`: 'loop' | 'live', `setSource()`).
 //
 // Events (CustomEvent 'change', detail { what }): 'status' 'playing' 'loops' 'loop' 'amp' 'volume'
-// 'loopFx' 'notice' 'suspended'.
+// 'loopFx' 'notice' 'suspended' 'source' 'live'.
 
 import { AMPS, DEFAULT_AMP, createAmpSection, AMP_SAMPLE_RATE } from './amp.js';
 import { LoopPlayer } from './player.js';
+import { LiveInput } from './live-input.js';
 import { loadManifest, createLoopLoader } from './loops.js';
 
 export const DEFAULT_VOLUME = 0.8;   // = -12 dB
@@ -34,7 +36,7 @@ export function audioSupported(g = globalThis) {
 }
 
 export class AudioEngine extends EventTarget {
-  // options: { loopsUrl (string | string[]), createContext(), fetchFn, onStart(engine) }
+  // options: { loopsUrl (string | string[]), createContext(), fetchFn, onStart(engine), mediaDevices, liveTimers, now }
   constructor(options = {}) {
     super();
     this.opts = options;
@@ -47,6 +49,11 @@ export class AudioEngine extends EventTarget {
     this.suspended = false;             // a real pedal is connected: the demo audio is paused
     this.notice = '';                   // message for the UI (loops missing, pedal could not be loaded)
     this.subs = new Set();              // tap subscriptions { kind, cb, off }
+    this.live = new LiveInput({ mediaDevices: options.mediaDevices, timers: options.liveTimers, now: options.now });
+    this.live.addEventListener('change', (e) => {
+      this.emit('live');
+      if (e.detail.what === 'state') { this.emit('source'); this.emit('status'); this.emit('playing'); }
+    });
     this.manifestReady = this.loadManifest();
   }
 
@@ -118,6 +125,7 @@ export class AudioEngine extends EventTarget {
     this.limiter = ctx.createDynamicsCompressor();   // safety net against loud settings (fuzz, loop pedals)
     this.limiter.threshold.value = -3; this.limiter.knee.value = 0; this.limiter.ratio.value = 20;
     this.limiter.attack.value = 0.002; this.limiter.release.value = 0.1;
+    this.live.attach(ctx, this.loopBus);
     this.loopBus.connect(this.ampSection.input);
     this.ampSection.output.connect(this.master);
     this.master.connect(this.limiter);
@@ -126,6 +134,7 @@ export class AudioEngine extends EventTarget {
 
   async play() {
     if (this.suspended) return false;
+    this.live.stop();                        // only one source at a time
     await this.start();
     if (this.suspended) return false;
     if (this.ctx.state === 'suspended') await this.ctx.resume();
@@ -133,7 +142,39 @@ export class AudioEngine extends EventTarget {
     if (!ok && this.player.state === 'unavailable') this.setNotice('Demo audio not available yet.');
     return ok;
   }
-  pause() { if (this.player) this.player.pause(); }
+  pause() { this.live.stop(); if (this.player) this.player.pause(); }
+
+  // ---- live input (the player's own bass instead of the loop)
+  // 'loop' | 'live' (live = the input is starting or on)
+  get source() { return this.live.state === 'off' ? 'loop' : 'live'; }
+  get liveSupported() { return this.live.supported; }
+  // Switches the source. 'live' needs a user gesture (opens the audio input; resolves true when it is on),
+  // 'loop' stops the live input (the loop does not start by itself: play()).
+  async setSource(src, opts) {
+    if (src === 'live') return this.startLive(opts);
+    if (src !== 'loop') return false;
+    this.live.stop();
+    return true;
+  }
+  // opts: { deviceId }. On failure the loop is paused, the live input is off and `live.error` says why.
+  async startLive(opts = {}) {
+    if (this.suspended) { this.live.error = { code: 'suspended', message: 'Live input is off while your pedal is connected.' }; this.live.emit('error'); return false; }
+    if (this.player) this.player.pause();
+    // the audio context first (created on this gesture), then the audio input
+    if (!this.live.supported) { this.live.error = this.live.unsupportedReason; this.live.emit('error'); return false; }
+    try { await this.start(); } catch (e) { this.live.error = { code: 'error', message: 'Could not start the audio.' }; this.live.emit('error'); return false; }
+    if (this.suspended) return false;
+    try { if (this.ctx.state === 'suspended') await this.ctx.resume(); } catch (e) { /* retried by the next gesture */ }
+    return this.live.start(opts);
+  }
+  // Estimated browser audio latency in ms (output side: baseLatency + outputLatency; the interface's own
+  // input buffer is not included). null before the audio started.
+  get latency() {
+    const c = this.ctx;
+    if (!c) return null;
+    const base = (c.baseLatency || 0) * 1000, out = (c.outputLatency || 0) * 1000;
+    return { baseMs: base, outputMs: out, totalMs: base + out };
+  }
 
   // ---- the virtual pedal (set by the session)
   // pedal: { node, setLoopFx, taps } (virtual-pedal.js), or null for "straight through".
@@ -154,7 +195,7 @@ export class AudioEngine extends EventTarget {
     if (this.suspended === on) return;
     this.suspended = on;
     if (on) {
-      this.pause();
+      this.pause();                       // also stops the live input (releases the microphone)
       if (this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
     } else if (this.ctx) this.ctx.resume().catch(() => {});
     this.emit('suspended'); this.emit('status');

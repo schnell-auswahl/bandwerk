@@ -45,6 +45,25 @@
 .pl-seg input:checked + span::before { content: "●"; margin-right: var(--sp-2); }
 .pl-seg input:focus-visible + span { outline: var(--border) solid var(--focus); outline-offset: 2px; position: relative; z-index: 1; }
 
+/* ---- live input */
+.pl-live { max-width: var(--max); margin: var(--sp-3) auto 0; }
+.pl-notice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3) var(--sp-4); padding: var(--sp-3) var(--sp-4); border: var(--border) solid var(--warn); color: var(--paper); }
+.pl-notice p { flex: 1 1 260px; }
+.pl-notice-btns { display: inline-flex; gap: var(--sp-2); flex-wrap: wrap; }
+.pl-live-row { display: flex; flex-wrap: wrap; align-items: end; gap: var(--sp-2) var(--sp-4); }
+.pl-field--dev { flex: 1 1 200px; max-width: 280px; }
+.pl-field--ch { flex: 0 1 150px; }
+.pl-field--gain { flex: 1 1 160px; max-width: 240px; }
+.pl-field--meter { flex: 1 1 160px; max-width: 240px; position: relative; }
+.pl-meter { display: block; height: 14px; background: var(--ink-3); border: var(--border) solid var(--line-strong); }
+.pl-meter i { display: block; height: 100%; width: 0; background: var(--ok); }
+.pl-meter.is-clip i { background: var(--err); }
+.pl-clip { position: absolute; right: 0; top: 0; font: 800 var(--fs-label) var(--mono); color: var(--err); letter-spacing: .08em; }
+.pl-latency { flex: 1 1 100%; font: var(--fs-label) / 1.45 var(--mono); color: var(--mute); }
+.pl--compact .pl-live { grid-column: 1 / -1; margin: 0; }
+.pl--compact .pl-source--in { grid-column: 1 / -1; }
+.pl--bar .pl-source--in { order: 5; }
+
 /* ---- compact (hero) */
 .pl--compact { max-width: 560px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); align-items: end; }
 .pl--compact .pl-msg { grid-column: 1 / -1; }
@@ -88,6 +107,8 @@ html.has-player-bar body { padding-bottom: var(--pl-h, 0px); }
   .pl--bar.is-open .pl-extra { display: flex; }
   .pl--bar .pl-extra .pl-field--amp { flex: 1 1 100%; max-width: none; order: 0; }
   .pl--bar .pl-extra .pl-source { flex: 1 1 auto; order: 0; }
+  .pl--bar .pl-live { margin-top: var(--sp-2); }
+  .pl--bar .pl-live-row .pl-field { flex: 1 1 100%; max-width: none; }
   .pl--bar .pl-extra .pl-reset { flex: 0 0 auto; order: 0; }
   .pl--bar .pl-msg { display: none; }
   .pl--bar .pl-seg span { padding: 0 var(--sp-2); }

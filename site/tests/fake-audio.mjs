@@ -12,7 +12,7 @@ export class FakeParam {
 
 export class FakeNode {
   constructor(ctx, type) { this.ctx = ctx; this.type = type; this.id = ++ids; this.outputs = new Set(); this.inputs = new Set(); }
-  connect(n) { this.outputs.add(n); n.inputs && n.inputs.add(this); return n; }
+  connect(n, out, inp) { this.outputs.add(n); n.inputs && n.inputs.add(this); (this.links ||= []).push({ to: n, out, in: inp }); return n; }
   disconnect(n) {
     if (n) { if (!this.outputs.has(n)) throw new Error('not connected'); this.outputs.delete(n); n.inputs && n.inputs.delete(this); return; }
     for (const o of this.outputs) o.inputs && o.inputs.delete(this);
@@ -22,6 +22,10 @@ export class FakeNode {
 class FakeGain extends FakeNode { constructor(c) { super(c, 'gain'); this.gain = new FakeParam(1); } }
 class FakeBiquad extends FakeNode {
   constructor(c) { super(c, 'biquad'); this.frequency = new FakeParam(350); this.Q = new FakeParam(1); this.gain = new FakeParam(0); this.detune = new FakeParam(0); }
+}
+class FakeAnalyser extends FakeNode {
+  constructor(c) { super(c, 'analyser'); this.fftSize = 2048; this.samples = null; }
+  getFloatTimeDomainData(a) { a.fill(0); if (this.samples) a.set(this.samples.slice(0, a.length)); }
 }
 class FakeShaper extends FakeNode { constructor(c) { super(c, 'shaper'); this.curve = null; this.oversample = 'none'; } }
 class FakeComp extends FakeNode {
@@ -56,6 +60,9 @@ export class FakeAudioContext {
   createBiquadFilter() { return new FakeBiquad(this); }
   createWaveShaper() { return new FakeShaper(this); }
   createDynamicsCompressor() { return new FakeComp(this); }
+  createAnalyser() { return new FakeAnalyser(this); }
+  createChannelSplitter(n) { const x = new FakeNode(this, 'splitter'); x.numberOfOutputs = n; return x; }
+  createMediaStreamSource(stream) { const x = new FakeNode(this, 'mediaStreamSource'); x.stream = stream; return x; }
   createBufferSource() { return new FakeSource(this); }
   async decodeAudioData(bytes) { return new FakeBuffer(bytes.duration); }
   async resume() { this.state = 'running'; }
@@ -73,3 +80,34 @@ export function fakeTimers() {
     runAll() { const l = list.splice(0); l.forEach((t) => t.fn()); },
   };
 }
+
+// getUserMedia fakes. A track has settings and fires 'ended'; a stream remembers which tracks were stopped.
+export class FakeTrack extends EventTarget {
+  constructor(settings = {}) { super(); this.kind = 'audio'; this.readyState = 'live'; this.settings = { channelCount: 2, ...settings }; }
+  getSettings() { return this.settings; }
+  stop() { this.readyState = 'ended'; }
+  end() { this.readyState = 'ended'; this.dispatchEvent(new Event('ended')); }   // the device vanished
+}
+export class FakeStream {
+  constructor(tracks) { this.tracks = tracks; }
+  getTracks() { return this.tracks; }
+  getAudioTracks() { return this.tracks; }
+}
+// opts: { devices: [{ deviceId, label }], channelCount, fail: Error | null }. `calls` records the constraints.
+export function fakeMediaDevices(opts = {}) {
+  const md = new EventTarget();
+  md.calls = []; md.streams = [];
+  md.devices = opts.devices || [{ deviceId: 'dev1', label: 'Interface' }, { deviceId: 'dev2', label: 'Mic' }];
+  md.fail = opts.fail || null;
+  md.channelCount = opts.channelCount || 2;
+  md.getUserMedia = async (c) => {
+    md.calls.push(c);
+    if (md.fail) throw md.fail;
+    const s = new FakeStream([new FakeTrack({ channelCount: md.channelCount })]);
+    md.streams.push(s);
+    return s;
+  };
+  md.enumerateDevices = async () => md.devices.map((d) => ({ kind: 'audioinput', ...d }));
+  return md;
+}
+export const domError = (name) => Object.assign(new Error(name), { name });
