@@ -48,16 +48,13 @@ jobs:
           make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
           make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
 
-      - name: Release build (BM_DEV=0, BM_REMOTE=1, BOOT_SRAM)
-        run: make -C firmware release
-
-      # The web installer reads site/firmware/manifest.json (keys fixed by the
-      # site's flasher): the program for the QSPI chip and the Daisy bootloader
-      # for the internal flash. Same script as for local testing.
-      - name: Publish the firmware with a manifest
+      # Builds both release variants (BOARD=hothouse, BOARD=funbox) and writes
+      # site/firmware/manifest.json for the web installer (program per board plus
+      # the Daisy bootloader). Same script as for local testing.
+      - name: Release builds for both boards, published with a manifest
         env:
           COMMIT: ${{ github.sha }}
-        run: tools/site_firmware.sh
+        run: tools/site_firmware.sh --build
 
       # The firmware's DSP and UI logic as WebAssembly for the virtual pedal on the site
       # (site/wasm/ is not committed).
