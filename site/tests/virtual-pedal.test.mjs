@@ -180,9 +180,12 @@ async function render(ctx, quanta, input) {
   await tick(); await tick();
 }
 
-test('createVirtualPedal: commands, lines, hardware, loop pedal and taps through the worklet messages', { skip }, async () => {
+test('createVirtualPedal: commands, lines, hardware, loop pedal and taps through the worklet messages', { skip, timeout: 30000 }, async (t) => {
   const ctx = installAudioMocks();
   const pedal = await createVirtualPedal(ctx, { wasmUrl: 'virtual_pedal.wasm' });
+  // A failed assertion below must not leave the worklet's message ports open: the test file
+  // would then never exit and the whole test run would hang (e.g. with a stale wasm build).
+  t.after(() => { try { pedal.dispose(); } catch { /* already disposed */ } });
   assert.equal(pedal.node.options.numberOfInputs, 1);
   assert.deepEqual(pedal.node.options.outputChannelCount, [1]);
   assert.equal(pedal.node.options.channelCount, 1);
