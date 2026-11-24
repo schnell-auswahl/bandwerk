@@ -68,7 +68,8 @@ test('fake_pedal.py lines (same as the bridge sees)', () => {
 test('[CMD] replies and hello', () => {
   assert.deepEqual(parseLine('[CMD] ok set ch_thr 600'), { t: 'CMD', ok: true, text: 'ok set ch_thr 600' });
   assert.deepEqual(parseLine('[CMD] err unknown command'), { t: 'CMD', ok: false, text: 'err unknown command' });
-  assert.deepEqual(parseHello('ok hello fw=0.1.0-beta proto=1 build=release app=boot_none'), { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_none' });
+  assert.deepEqual(parseHello('ok hello fw=0.1.0-beta proto=1 build=release app=boot_none'), { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_none', board: null });
+  assert.deepEqual(parseHello('ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram board=funbox'), { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_sram', board: 'funbox' });
   assert.equal(parseHello('err unknown command'), null);
   assert.equal(parseHello(undefined), null);
 });

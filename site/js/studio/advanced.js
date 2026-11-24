@@ -50,7 +50,7 @@ export class Advanced {
   }
   renderSys(store, hello, kind) {
     const S = store.SYS, rows = [
-      ['Connection', kind], ['Firmware', hello ? `${hello.fw} (protocol ${hello.proto}, ${hello.build}, ${hello.app})` : '–'],
+      ['Connection', kind], ['Firmware', hello ? `${hello.fw} (protocol ${hello.proto}, ${hello.build}, ${hello.app}${hello.board ? ', ' + hello.board : ''})` : '–'],
       ['Sample rate', S ? (S.sr / 1000) + ' kHz, block ' + S.block : '–'],
       ['CPU', S && (kind === 'serial' || kind === 'bridge') ? `${S.cpu_avg.toFixed(1)} % (max ${S.cpu_max.toFixed(1)} %)` : (S ? 'runs on your computer' : '–')],
       ['Main loop', S ? S.loops + ' /s' : '–'],

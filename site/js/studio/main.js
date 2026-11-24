@@ -6,7 +6,7 @@
 import { chainState, knobsForBlock } from './state.js';
 import { cmd as C } from './protocol.js';
 import { fmtLvl } from './mapping.js';
-import { Chain, DEF, INFO, STATE_TEXT, blockLines, meterLevel } from './chain.js';
+import { Chain, DEF, setBoard, infoText, STATE_TEXT, blockLines, meterLevel } from './chain.js';
 import { Editor } from './editor.js';
 import { Advanced } from './advanced.js';
 import { serialSupported } from './transport-serial.js';
@@ -175,7 +175,7 @@ class Studio extends EventTarget {
     let lines = blockLines(id, s, store);
     const lvl = id === 'sumH' ? (store.M ? store.M.sh : undefined) : id === 'sumL' ? (store.M ? store.M.sl : undefined) : meterLevel(id, store);
     if (lvl !== undefined) lines = lines.concat(['level ' + fmtLvl(lvl) + ' dBFS']);
-    tip.innerHTML = `<b>${esc(DEF[id].name)}</b> <span class="tip-st">${STATE_TEXT[st]}</span><br>${lines.map(esc).join('<br>')}<div class="tip-i">${esc(INFO[id])}</div>`;
+    tip.innerHTML = `<b>${esc(DEF[id].name)}</b> <span class="tip-st">${STATE_TEXT[st]}</span><br>${lines.map(esc).join('<br>')}<div class="tip-i">${esc(infoText(id))}</div>`;
     tip.hidden = false;
     const w = tip.offsetWidth;
     tip.style.left = Math.min(e.clientX + 16, window.innerWidth - w - 8) + 'px';
@@ -219,6 +219,7 @@ class Studio extends EventTarget {
     const st = this.$('[data-status]');
     if (st.textContent !== text) st.textContent = text;
     this.$('[data-dot]').className = 'st-dot ' + cls;
+    setBoard(ses.hello && (kind === 'serial' || kind === 'bridge') ? ses.hello.board : null);
     this.$('[data-fw]').textContent = ses.hello && (kind === 'serial' || kind === 'bridge') ? 'fw ' + ses.hello.fw : '';
     // CPU is the pedal's own load: only a real pedal has one (the virtual pedal runs on the computer).
     const showCpu = SYS && (kind === 'serial' || kind === 'bridge');

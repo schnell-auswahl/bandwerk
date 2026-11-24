@@ -35,6 +35,7 @@ const serialOf = (port, filters) => ({ requestPort: async (o) => { serialOf.last
 test("parses the hello reply", () => {
   assert.deepEqual(parseHello("[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram"),
     { fw: "0.1.0-beta", proto: "1", build: "release", app: "boot_sram" });
+  assert.equal(parseHello("[CMD] ok hello fw=0.2.0 proto=1 build=release app=boot_sram board=funbox").board, "funbox");
   assert.equal(parseHello("[CMD] err nope"), null);
 });
 

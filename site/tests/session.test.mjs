@@ -255,7 +255,7 @@ test('virtual transport: lines in, commands out, hello, parked state replay', as
   cb('[S] pg=3 bd=1 lm=0 dt=1 oc=0 dr=0 by=0 ca=15 tp=0 pm=' + new Array(22).fill(500).join(',') + '\n');   // before connect: remembered
   assert.deepEqual(msgs, []);
   const hello = await t.connect();
-  assert.deepEqual(hello, { fw: '1.2.3', proto: 1, build: 'virtual', app: 'wasm' });
+  assert.deepEqual(hello, { fw: '1.2.3', proto: 1, build: 'virtual', app: 'wasm', board: null });
   assert.deepEqual(msgs, ['S'], 'the remembered [S] is replayed on connect');
   cb('[M] ch=0\n[CMD] ok x\ngarbage\n[SYS] sr=48000 block=4 cpu avg=1.0% max=2.0% loops=1\r\n');
   assert.deepEqual(msgs, ['S', 'SYS'], 'invalid lines and [CMD] are ignored');

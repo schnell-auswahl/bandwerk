@@ -203,7 +203,7 @@ discarded (a host that disappears in the middle of a line does not spoil the nex
 | Command | Reply | Effect |
 |---|---|---|
 | `ping` | `ok ping` | none |
-| `hello` | `ok hello fw=<version> proto=<n> build=<dev\|release> app=<boot_sram\|boot_none>` | none; extra words after `hello` are ignored |
+| `hello` | `ok hello fw=<version> proto=<n> build=<dev\|release> app=<boot_sram\|boot_none> board=<hothouse\|funbox\|virtual>` | none; extra words after `hello` are ignored |
 | `set <name\|index> <permille>` | `ok set <name> <permille>` (always the name, also when an index was sent) | sets a stored parameter (table above) |
 | `oct on\|off`, `drv on\|off`, `byp on\|off` | `ok oct on` etc. | octaver, drive, global bypass. `1`/`0` work as well; the reply says `on`/`off`. The page does not change. |
 | `page comp\|loop\|oct\|drive` | `ok page <page>` | opens a page (when it is a different page, the knobs pick up again) |
@@ -244,7 +244,7 @@ Notes:
 Send `hello` right after opening the port. The reply identifies the firmware:
 
 ```
-[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram
+[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram board=hothouse
 ```
 
 - `fw`: firmware version (semver, from `firmware/version.h`).
@@ -253,6 +253,9 @@ Send `hello` right after opening the port. The reply identifies the firmware:
 - `build`: `release` or `dev`.
 - `app`: memory layout: `boot_sram` (Daisy bootloader present, program in QSPI) or `boot_none`.
   This decides what `dfu` does.
+- `board`: the hardware the firmware was built for: `hothouse` (Cleveland Music Co. Hothouse), `funbox`
+  (GuitarML FunBox v1-v3; the toggles are left/right = up/down), `virtual` (the virtual pedal). Always the
+  last field. Firmware from before this field (and the demo) omits it: a host treats that as unknown.
 
 No `[CMD] ok hello` within 1.5 s (after one retry) means: firmware without remote support, or
 another firmware. Firmware without `hello` (development versions before protocol v1) answers

@@ -6,7 +6,12 @@ with `dfu-util` instead.
 
 ## What you need
 
-- A Hothouse pedal (Daisy Seed inside) and a USB **data** cable (some cables only charge).
+- A Hothouse pedal or a GuitarML FunBox (v1-v3), each with a Daisy Seed inside, and a USB **data** cable (some
+  cables only charge).
+- **Choose your board in the installer** ("Your pedal": Hothouse or FunBox v1-v3) before you flash. It is
+  remembered in the browser and preselected when the pedal is connected over USB and reports its board. The two
+  builds differ only in the toggle switch pins: a wrong choice does not harm the pedal, but the toggles will
+  not respond. The FunBox build is supported but **not yet tested on FunBox hardware**; please report how it works.
 - **Chrome, Edge or Opera on a desktop computer, or Chrome on Android.** The installer uses WebUSB, which Firefox,
   Safari and all browsers on iPhone/iPad do not have. In those browsers the installer page shows the alternatives
   below instead.
@@ -70,6 +75,13 @@ This replaces the firmware that is currently on the pedal.
   The installer checks the size (at most 480 KB) and the vector table, and refuses programs built for the internal flash.
   Custom files are never written to the internal flash.
 
+## FunBox notes
+
+- The three toggle switches report **left = up** and **right = down** (the manual and the studio say left/right
+  when a FunBox is connected). Everything else is as on the Hothouse: knobs 1-6, footswitches, LEDs, stereo in/out.
+- The FX loop uses the ring of the TRS jacks as on the Hothouse (OUT R ring = send, IN R ring = return).
+- The DIP switches, MIDI in and the expression input are not used for now.
+
 ## Platform notes
 
 ### Windows
@@ -107,13 +119,13 @@ against the `.sha256` files.
 dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D dsy_bootloader_v6_2-intdfu-2000ms.bin
 
 # 2. Pedal in the Daisy bootloader (appears by itself after step 1 on a new pedal; with our firmware: FS1+FS2 2 s):
-dfu-util -a 0 -d 0483:df11 -s 0x90040000:leave -D bass_multiband.bin
+dfu-util -a 0 -d 0483:df11 -s 0x90040000:leave -D bandwerk-hothouse.bin   # or bandwerk-funbox.bin
 ```
 
 `-a 0` is the first alt setting, which is the flash in both bootloaders. Do not use other alt settings (option bytes!).
 
 The [Daisy Web Programmer](https://flash.daisy.audio/) (Electro-Smith) is another browser tool; it also needs WebUSB.
-Use it to install the Daisy bootloader and flash `bass_multiband.bin` as a bootloader program (check its current instructions).
+Use it to install the Daisy bootloader and flash `bandwerk-hothouse.bin` (or `bandwerk-funbox.bin`) as a bootloader program (check its current instructions).
 
 ## Recovery
 

@@ -25,24 +25,27 @@ jobs:
           make -C lib/HothouseExamples/libDaisy -j"$(nproc)"
           make -C lib/HothouseExamples/DaisySP -j"$(nproc)"
 
-      - name: Release build (BM_DEV=0, BM_REMOTE=1, BOOT_SRAM)
+      - name: Release builds (BM_DEV=0, BM_REMOTE=1, BOOT_SRAM), Hothouse and FunBox
         run: |
           set -eu
-          make -C firmware release
           mkdir -p dist
-          app="bass_multiband-${GITHUB_REF_NAME}.bin"
           boot=dsy_bootloader_v6_2-intdfu-2000ms.bin
-          cp firmware/build/bass_multiband.bin "dist/${app}"
+          for board in hothouse funbox; do
+            make -C firmware release BOARD=$board
+            cp firmware/build/bass_multiband.bin "dist/bandwerk-${board}-${GITHUB_REF_NAME}.bin"
+          done
           cp "lib/HothouseExamples/libDaisy/core/${boot}" "dist/${boot}"
           cp lib/HothouseExamples/libDaisy/LICENSE dist/LICENSE-libDaisy.txt
-          (cd dist && sha256sum "${app}" > "${app}.sha256" && sha256sum "${boot}" > "${boot}.sha256")
+          (cd dist && for f in bandwerk-*-"${GITHUB_REF_NAME}".bin; do sha256sum "$f" > "$f.sha256"; done && sha256sum "${boot}" > "${boot}.sha256")
 
       - name: Attach the firmware to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/bass_multiband-*.bin
-            dist/bass_multiband-*.bin.sha256
+            dist/bandwerk-hothouse-*.bin
+            dist/bandwerk-hothouse-*.bin.sha256
+            dist/bandwerk-funbox-*.bin
+            dist/bandwerk-funbox-*.bin.sha256
             dist/dsy_bootloader_*.bin
             dist/dsy_bootloader_*.bin.sha256
             dist/LICENSE-libDaisy.txt

@@ -8,7 +8,7 @@ pedal disappearing into the bootloader. The [M] levels follow the simulated
 state roughly (bridge = no send, octaver off = no octaves, fuzz split only with
 drive on + fuzz), so every greyed-out state of the signal-chain view can be checked.
 
-usage: fake_pedal.py [--build release|dev] [--app boot_sram|boot_none]
+usage: fake_pedal.py [--build release|dev] [--app boot_sram|boot_none] [--board hothouse|funbox]
        then   live_server.py --device <printed path>
 Standard library only.
 """
@@ -40,7 +40,7 @@ def fw_version():
 
 pm = list(DEFAULTS)
 state = {"pg": 3, "oc": 0, "dr": 0, "by": 0, "lm": 0, "dt": 1, "bd": 1}
-build = {"build": "release", "app": "boot_sram"}
+build = {"build": "release", "app": "boot_sram", "board": "hothouse"}
 
 
 def to_int(s):
@@ -61,7 +61,7 @@ def handle(line):
     if cmd == "ping":
         return "ok ping", None
     if cmd == "hello":
-        return "ok hello fw=%s proto=1 build=%s app=%s" % (fw_version(), build["build"], build["app"]), None
+        return "ok hello fw=%s proto=1 build=%s app=%s board=%s" % (fw_version(), build["build"], build["app"], build["board"]), None
     if cmd == "dfu":
         return ("ok dfu", "dfu") if n == 1 else ("err usage: dfu", None)
     if cmd == "defaults":
@@ -136,8 +136,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Fake pedal on a pseudo terminal")
     ap.add_argument("--build", choices=("release", "dev"), default="release")
     ap.add_argument("--app", choices=("boot_sram", "boot_none"), default="boot_sram")
+    ap.add_argument("--board", choices=("hothouse", "funbox"), default="hothouse")
     a = ap.parse_args(argv)
-    build.update(build=a.build, app=a.app)
+    build.update(build=a.build, app=a.app, board=a.board)
     dev = PtyDevice()
     print(dev.path, flush=True)
     t0 = time.time()

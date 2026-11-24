@@ -24,7 +24,11 @@
 #include "daisysp.h"
 #include "dsp/bass_chain.h"
 #include "dsp/loop_probe.h"
+#ifdef BM_BOARD_FUNBOX
+#include "board/funbox.h"
+#else
 #include "hothouse.h"
+#endif
 #include "ui/dfu_gesture.h"
 #include "ui/knob_calibration.h"
 #include "ui/loop_calibration.h"
@@ -46,7 +50,13 @@
 #include "util/CpuLoadMeter.h"
 #include "sys/dma.h"
 
-using clevelandmusicco::Hothouse;
+#ifdef BM_BOARD_FUNBOX
+using Board = bm_board::FunBox;
+#define BM_BOARD_NAME "funbox"
+#else
+using Board = clevelandmusicco::Hothouse;
+#define BM_BOARD_NAME "hothouse"
+#endif
 using daisy::AudioHandle;
 using daisy::CpuLoadMeter;
 using daisy::Led;
@@ -61,7 +71,7 @@ constexpr size_t kBlockSize = 4;
 // straight to OUT L, both LEDs off).
 constexpr bool kEnableBypassGesture = true;
 
-Hothouse hw;
+Board hw;
 Led led_1, led_2;
 CpuLoadMeter cpu_load;
 bm::UiController ui;
@@ -226,7 +236,7 @@ void StartupBlink() {
   }
 }
 
-// Same visible announcement as Hothouse::CheckResetToBootloader(): alternate
+// Same visible announcement as Board::CheckResetToBootloader(): alternate
 // the LEDs three times, then jump into the bootloader.
 void EnterBootloader() {
   hw.StopAdc();
@@ -255,10 +265,10 @@ void EnterBootloader() {
 #endif
 }
 
-bm::TogglePos ToTogglePos(Hothouse::ToggleswitchPosition p) {
+bm::TogglePos ToTogglePos(Board::ToggleswitchPosition p) {
   switch (p) {
-    case Hothouse::TOGGLESWITCH_UP: return bm::TogglePos::kUp;
-    case Hothouse::TOGGLESWITCH_DOWN: return bm::TogglePos::kDown;
+    case Board::TOGGLESWITCH_UP: return bm::TogglePos::kUp;
+    case Board::TOGGLESWITCH_DOWN: return bm::TogglePos::kDown;
     default: return bm::TogglePos::kMiddle;
   }
 }
@@ -271,14 +281,14 @@ float g_raw_knob[6] = {0, 0, 0, 0, 0, 0};
 
 void ReadInputs(bm::UiInputs* in) {
   for (int i = 0; i < 6; ++i) {
-    g_raw_knob[i] = hw.GetKnobValue(static_cast<Hothouse::Knob>(i));
+    g_raw_knob[i] = hw.GetKnobValue(static_cast<Board::Knob>(i));
     in->knob[i] = bm::NormalizeKnob(i, g_raw_knob[i]);
   }
-  in->toggle[0] = ToTogglePos(hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_1));
-  in->toggle[1] = ToTogglePos(hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_2));
-  in->toggle[2] = ToTogglePos(hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_3));
-  in->fs[0] = hw.switches[Hothouse::FOOTSWITCH_1].Pressed();
-  in->fs[1] = hw.switches[Hothouse::FOOTSWITCH_2].Pressed();
+  in->toggle[0] = ToTogglePos(hw.GetToggleswitchPosition(Board::TOGGLESWITCH_1));
+  in->toggle[1] = ToTogglePos(hw.GetToggleswitchPosition(Board::TOGGLESWITCH_2));
+  in->toggle[2] = ToTogglePos(hw.GetToggleswitchPosition(Board::TOGGLESWITCH_3));
+  in->fs[0] = hw.switches[Board::FOOTSWITCH_1].Pressed();
+  in->fs[1] = hw.switches[Board::FOOTSWITCH_2].Pressed();
   in->now_ms = System::GetNow();
 }
 
@@ -302,6 +312,7 @@ bm::BuildInfo MakeBuildInfo() {
 #else
   b.app = "boot_none";
 #endif
+  b.board = BM_BOARD_NAME;
   return b;
 }
 
@@ -376,8 +387,8 @@ int main() {
   dev_log.Init();  // non-blocking: works with or without a host
 #endif
 
-  led_1.Init(hw.seed.GetPin(Hothouse::LED_1), false, hw.AudioCallbackRate());
-  led_2.Init(hw.seed.GetPin(Hothouse::LED_2), false, hw.AudioCallbackRate());
+  led_1.Init(hw.seed.GetPin(Board::LED_1), false, hw.AudioCallbackRate());
+  led_2.Init(hw.seed.GetPin(Board::LED_2), false, hw.AudioCallbackRate());
   StartupBlink();
 
   cpu_load.Init(hw.AudioSampleRate(), static_cast<int>(hw.AudioBlockSize()));

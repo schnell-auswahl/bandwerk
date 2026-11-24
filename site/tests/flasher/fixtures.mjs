@@ -14,6 +14,7 @@ function image(size, sp, reset, seed) {
 
 export const bootloaderBin = () => image(20000 + 596, 0x20020000, 0x08000201, 1);
 export const appBin = () => image(150000, 0x20020000, 0x240007ad, 2);
+export const appFunboxBin = () => image(151000, 0x20020000, 0x240007ad, 4);
 export const internalFlashAppBin = () => image(60000, 0x20020000, 0x08000201 + 0x1000, 3); // a BOOT_NONE program
 
 export async function sha(bytes) {
@@ -22,14 +23,19 @@ export async function sha(bytes) {
 }
 
 export async function makeFirmware() {
-  const bootloader = bootloaderBin(), app = appBin();
+  const bootloader = bootloaderBin(), app = appBin(), appFunbox = appFunboxBin();
   return {
     manifest: {
-      name: "Hothouse Bass Multiband", version: "9.9.9-test", commit: "abc1234",
-      app: { file: "app.bin", size: app.length, sha256: await sha(app), address: "0x90040000", type: "boot_sram" },
+      name: "Bandwerk", version: "9.9.9-test", commit: "abc1234",
+      boards: {
+        hothouse: { label: "Cleveland Music Co. Hothouse",
+          app: { file: "app.bin", size: app.length, sha256: await sha(app), address: "0x90040000", type: "boot_sram" } },
+        funbox: { label: "GuitarML FunBox (v1\u2013v3)", tested: false,
+          app: { file: "app-funbox.bin", size: appFunbox.length, sha256: await sha(appFunbox), address: "0x90040000", type: "boot_sram" } },
+      },
       bootloader: { file: "boot.bin", size: bootloader.length, sha256: await sha(bootloader), address: "0x08000000", version: "6.2", license: "MIT" },
     },
-    app, bootloader,
+    app, appFunbox, bootloader,
   };
 }
 

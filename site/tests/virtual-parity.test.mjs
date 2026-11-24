@@ -75,7 +75,7 @@ test('chain defaults: audio and telemetry', { skip }, () => {
   const sc = `cmd hello\ncmd ping\nprocess 48000\npoll\n${polls(10)}`;
   const r = compare('defaults', sc, bassSignal(2));
   assert.ok(r.a.log.some((l) => l.startsWith('TEL [SYS] sr=48000 block=4')));
-  assert.ok(r.a.log.includes('CMD hello => ok ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm'));
+  assert.ok(r.a.log.includes('CMD hello => ok ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual'));
 });
 
 test('chain on/off, bypass, crossover and compressor settings', { skip }, () => {

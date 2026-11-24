@@ -37,6 +37,17 @@ export const DEF = {
   master: { t: 'MASTER', name: 'Master and soft clip', fx: 'io', kind: 'master', m: 'pr' },
   out: { t: 'OUT L', name: 'Output (OUT L)', fx: 'io', kind: 'io', m: 'out' },
 };
+// On the FunBox the toggles are "left / right" (left = up, right = down). infoText() swaps the
+// wording for the texts that name toggle positions; setBoard() is called with hello.board.
+let boardId = null;
+export function setBoard(b) { boardId = b || null; }
+export const INFO_FUNBOX = {
+  compH: 'High band compressor: attack 5 ms, 6 dB soft knee, auto makeup on the wet part. Page COMP, S1 left or middle.',
+  compL: 'Low band compressor: attack 10 ms, 6 dB soft knee, auto makeup on the wet part. Page COMP, S1 right or middle.',
+  s2: 'S2 selects the loop mode: left Bridge, middle Loop, right Loop with phase invert.',
+  phase: 'Inverts the return with S2 right.',
+};
+export const infoText = (id) => (boardId === 'funbox' && INFO_FUNBOX[id]) || INFO[id];
 export const INFO = {
   in: 'Bass input (tip of IN). Peak level in a 50 ms window.',
   trim: 'Fixed input trim (in the code) and a 5 Hz DC blocker.',

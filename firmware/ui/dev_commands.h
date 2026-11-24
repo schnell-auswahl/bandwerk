@@ -35,6 +35,7 @@ struct BuildInfo {
   int proto = BM_PROTO_VERSION;
   const char* build = "dev";      // "dev" | "release"
   const char* app = "boot_sram";  // "boot_sram" | "boot_none" (APP_TYPE)
+  const char* board = "hothouse"; // "hothouse" | "funbox" | "virtual"
 };
 
 // Something the firmware has to do after the reply has been sent.
@@ -61,8 +62,8 @@ inline bool ApplyDevCommand(UiController& ui, char* line, char* reply, size_t ca
 
   // Extra words after `hello` are ignored (room for a host version later).
   if (Is(t.t[0], "hello")) {
-    std::snprintf(reply, cap, "ok hello fw=%s proto=%d build=%s app=%s", info.fw, info.proto,
-                  info.build, info.app);
+    std::snprintf(reply, cap, "ok hello fw=%s proto=%d build=%s app=%s board=%s", info.fw,
+                  info.proto, info.build, info.app, info.board);
     return true;
   }
 

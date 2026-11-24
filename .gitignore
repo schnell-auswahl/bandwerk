@@ -9,3 +9,4 @@ node_modules/
 site/firmware/
 site/wasm/
 site/audio/dev/
+firmware/.release-bins/

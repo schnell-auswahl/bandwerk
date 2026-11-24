@@ -46,7 +46,7 @@ test('normalizeLoopFx accepts names, arrays and partial settings', () => {
 
 test('the wasm core answers commands like the pedal', { skip }, () => {
   const c = fresh();
-  assert.deepEqual(c.command('hello'), { ok: true, reply: 'ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm' });
+  assert.deepEqual(c.command('hello'), { ok: true, reply: 'ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual' });
   assert.deepEqual(c.command('set master 700'), { ok: true, reply: 'ok set master 700' });
   assert.deepEqual(c.command('save'), { ok: false, reply: 'err not available in the virtual pedal' });
   assert.deepEqual(c.command('set master 2000'), { ok: false, reply: 'err value must be 0..1000' });
@@ -191,7 +191,7 @@ test('createVirtualPedal: commands, lines, hardware, loop pedal and taps through
   const off = pedal.onLine((l) => lines.push(l));
   const reply = pedal.command('hello');
   await render(ctx, 2);
-  assert.equal(await reply, 'ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm');
+  assert.equal(await reply, 'ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual');
   const set = pedal.command('set master 650');
   const bad = pedal.command('looptest');
   await render(ctx, 2);

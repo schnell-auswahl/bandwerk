@@ -45,8 +45,20 @@ APP_TYPE ?= BOOT_SRAM
 # submodule (pinned; `git submodule update --init --recursive` fetches them).
 HOTHOUSE_DIR = ../lib/HothouseExamples
 
-# Sources and Hothouse header files
-CPP_SOURCES = bass_multiband.cpp $(HOTHOUSE_DIR)/src/hothouse.cpp
+# Target board: `make BOARD=funbox` builds for the GuitarML FunBox (v1-v3), board/funbox.cpp,
+# instead of the Cleveland Music Co. Hothouse. Always `make clean` when you change it.
+BOARD ?= hothouse
+ifeq ($(BOARD),funbox)
+BOARD_SRC = board/funbox.cpp
+C_DEFS += -DBM_BOARD_FUNBOX=1
+else ifeq ($(BOARD),hothouse)
+BOARD_SRC = $(HOTHOUSE_DIR)/src/hothouse.cpp
+else
+$(error BOARD must be hothouse or funbox)
+endif
+
+# Sources and header files (the Hothouse headers stay on the path: libDaisy/DaisySP come from there)
+CPP_SOURCES = bass_multiband.cpp $(BOARD_SRC)
 C_INCLUDES = -I$(HOTHOUSE_DIR)/src -I. -I../devkit/firmware
 
 # Library Locations
@@ -71,4 +83,4 @@ test:
 .PHONY: release
 release:
 	$(MAKE) clean
-	$(MAKE) BM_DEV=0 BM_REMOTE=1 APP_TYPE=BOOT_SRAM
+	$(MAKE) BM_DEV=0 BM_REMOTE=1 APP_TYPE=BOOT_SRAM BOARD=$(BOARD)

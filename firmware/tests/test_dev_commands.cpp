@@ -239,19 +239,20 @@ TEST(hello_reports_version_build_and_layout_exactly_as_in_the_protocol) {
   char line[96] = "hello";
   char reply[96];
   CHECK(ApplyDevCommand(b.ui, line, reply, sizeof reply, release));
-  CHECK(std::strcmp(reply, "ok hello fw=" BM_FW_VERSION " proto=1 build=release app=boot_sram") == 0);
+  CHECK(std::strcmp(reply, "ok hello fw=" BM_FW_VERSION " proto=1 build=release app=boot_sram board=hothouse") == 0);
   CHECK(std::strcmp(BM_FW_VERSION, "0.1.0-beta") == 0);
   CHECK(BM_PROTO_VERSION == 1);
 
   BuildInfo emergency;
   emergency.build = "release";
   emergency.app = "boot_none";
+  emergency.board = "funbox";
   std::snprintf(line, sizeof line, "hello studio/1");  // extra words are ignored
   CHECK(ApplyDevCommand(b.ui, line, reply, sizeof reply, emergency));
-  CHECK(std::strcmp(reply, "ok hello fw=0.1.0-beta proto=1 build=release app=boot_none") == 0);
+  CHECK(std::strcmp(reply, "ok hello fw=0.1.0-beta proto=1 build=release app=boot_none board=funbox") == 0);
 
   // Default BuildInfo = dev build in the Daisy bootloader layout.
-  CHECK(std::strcmp(b.Cmd("hello"), "ok hello fw=0.1.0-beta proto=1 build=dev app=boot_sram") == 0);
+  CHECK(std::strcmp(b.Cmd("hello"), "ok hello fw=0.1.0-beta proto=1 build=dev app=boot_sram board=hothouse") == 0);
 }
 
 TEST(hello_changes_nothing) {

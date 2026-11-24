@@ -138,6 +138,7 @@ class VirtualPedal {
     info.proto = BM_PROTO_VERSION;
     info.build = "virtual";
     info.app = "wasm";
+    info.board = "virtual";
     RemoteAction action = RemoteAction::kNone;
     return ApplyDevCommand(ui_, buf, reply, cap, info, &action);
   }

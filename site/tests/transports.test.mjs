@@ -104,7 +104,7 @@ test('serial: hello handshake, telemetry, commands, dfu', () => withSerial(async
   t.addEventListener('message', (e) => msgs.push(e.detail));
   const hello = await t.connect(port);
   assert.deepEqual(port.opened, { baudRate: 115200 });
-  assert.deepEqual(hello, { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_sram' });
+  assert.deepEqual(hello, { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_sram', board: null });
   assert.equal(msgs[0].t, 'S', 'telemetry before the reply is passed on');
   assert.deepEqual(await t.send('oct on'), { ok: true, reply: 'ok oct on' });
   const status = [];

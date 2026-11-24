@@ -12,7 +12,7 @@ const state = (p) => parseLine(p.stateLine());
 test('commands and replies', () => {
   const p = new DemoPedal(0);
   assert.equal(p.command('ping'), 'ok ping');
-  assert.deepEqual(parseHello(p.command('hello')), { fw: '0.1.0-beta', proto: 1, build: 'demo', app: 'none' });
+  assert.deepEqual(parseHello(p.command('hello')), { fw: '0.1.0-beta', proto: 1, build: 'demo', app: 'none', board: null });
   assert.equal(p.command('set ch_thr 600'), 'ok set ch_thr 600');
   assert.equal(p.command('set 7 1000'), 'ok set cl_ratio 1000');
   assert.equal(p.command('set 7 1001'), 'err value must be 0..1000');

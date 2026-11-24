@@ -3,7 +3,7 @@
 //   mountFlasher(root, { manifestUrl, enterBootloader, onFlashed }) -> Flasher
 // See docs/INSTALL.md. No external requests: only same-origin firmware files are fetched.
 
-import { loadFirmware, loadManifest, APP_MAX_BYTES } from "./firmware.js";
+import { loadFirmware, loadManifest, pickBoard, boardIds, APP_MAX_BYTES } from "./firmware.js";
 import { checkAppBinary } from "./checks.js";
 import { DFU_FILTERS, KIND_LABEL, openSession, planFor, runInstall, waitForDfuDevice } from "./installer.js";
 import { requestDfuOverSerial } from "./serial.js";
@@ -56,6 +56,10 @@ export function mountFlasher(root, options = {}) {
     userAgent: globalThis.navigator?.userAgent ?? "",
     ...(options.env || {}),
   };
+  const BOARD_KEY = "bandwerk.board";
+  const store = (() => { try { return env.storage ?? globalThis.localStorage ?? null; } catch { return null; } })();
+  const savedBoard = () => { try { return store?.getItem(BOARD_KEY) || null; } catch { return null; } };
+  const saveBoard = (id) => { try { store?.setItem(BOARD_KEY, id); } catch { /* private mode */ } };
   const manifestUrl = options.manifestUrl || "firmware/manifest.json";
   const platform = platformOf(env.userAgent);
   const docsUrl = options.docsUrl || DOCS_URL;
@@ -64,6 +68,7 @@ export function mountFlasher(root, options = {}) {
     screen: "loading",
     firmware: null,       // { manifest, app, bootloader } verified
     manifest: null,       // manifest only (for the unsupported screen)
+    board: null,          // chosen board id ("hothouse" | "funbox"), see manifest.boards
     loadError: null,
     flow: null,           // "update" | "first" | "custom" | "bootloader"
     custom: null,         // { name, bytes, check }
@@ -107,11 +112,34 @@ export function mountFlasher(root, options = {}) {
       return set({ screen: "unsupported" });
     }
     try {
-      S.firmware = await loadFirmware(manifestUrl, { fetch: env.fetch });
+      const { manifest } = await loadManifest(manifestUrl, { fetch: env.fetch });
+      // Remembered choice, else the board of a connected pedal (Studio), else the Hothouse.
+      const connected = (() => { try { return options.connectedBoard?.(); } catch { return null; } })();
+      const board = pickBoard(manifest, savedBoard() || connected);
+      S.firmware = await loadFirmware(manifestUrl, { fetch: env.fetch, board });
       S.manifest = S.firmware.manifest;
+      S.board = board;
       set({ screen: "home" });
     } catch (e) {
       set({ screen: "loadError", loadError: e.message });
+    }
+  }
+
+  // Switches the board: remembers it and loads (and verifies) that board's program.
+  let boardSeq = 0;
+  async function selectBoard(id, { remember = true } = {}) {
+    if (!S.manifest?.boards[id] || id === S.board) return;
+    const seq = ++boardSeq;
+    if (remember) saveBoard(id);
+    S.board = id; // the radio shows it at once; the program follows
+    set({ boardLoading: true });
+    try {
+      const fw = await loadFirmware(manifestUrl, { fetch: env.fetch, board: id });
+      if (seq !== boardSeq) return;
+      set({ firmware: fw, manifest: fw.manifest, boardLoading: false });
+    } catch (e) {
+      if (seq !== boardSeq) return;
+      set({ screen: "loadError", loadError: e.message, boardLoading: false });
     }
   }
 
@@ -169,6 +197,10 @@ export function mountFlasher(root, options = {}) {
   async function run(session, mode) {
     const fw = S.firmware;
     const app = S.flow === "custom" && S.custom ? S.custom.bytes : fw.app;
+    if (S.boardLoading && !(S.flow === "custom" && S.custom)) {
+      await session.close();
+      return set({ screen: "error", error: { message: "The program for the chosen board was still loading. Please try again.", code: "target" } });
+    }
     const plan = planFor(session.kind, mode);
     if (!plan) {
       await session.close();
@@ -223,7 +255,10 @@ export function mountFlasher(root, options = {}) {
       // or null/undefined when it does not: then the installer opens the serial port itself.
       const ok = options.enterBootloader ? await options.enterBootloader() : null;
       if (ok === null || ok === undefined) {
-        await requestDfuOverSerial(env.serial, { all: S.serialAll });
+        const r = await requestDfuOverSerial(env.serial, { all: S.serialAll });
+        // The pedal says which board it is: use that program (not remembered as a manual choice).
+        const b = r.hello?.board;
+        if (b && S.manifest.boards[b] && b !== S.board) { saveBoard(b); await selectBoard(b); }
       } else if (!ok) {
         throw new Error("The pedal did not confirm the restart.");
       }
@@ -270,7 +305,7 @@ export function mountFlasher(root, options = {}) {
     const commit = (m.commit || "").slice(0, 7);
     return h("p", { class: "fl-info fl-mono" },
       h("b", null, `v${m.version}`), commit ? ` · ${commit}` : "",
-      ` · program ${fmtBytes(m.app.size)} · bootloader ${m.bootloader.version || ""} ${fmtBytes(m.bootloader.size)}`,
+      ` · ${m.boards[S.board].label} · program ${fmtBytes(m.boards[S.board].app.size)} · bootloader ${m.bootloader.version || ""} ${fmtBytes(m.bootloader.size)}`,
       " · checksums verified");
   }
 
@@ -311,7 +346,8 @@ export function mountFlasher(root, options = {}) {
     const m = S.manifest;
     const files = m ? h("p", { class: "fl-small" }, "Files: ",
       h("a", { href: new URL(m.bootloader.file, new URL(manifestUrl, document.baseURI)).href }, m.bootloader.file), " (to 0x08000000), ",
-      h("a", { href: new URL(m.app.file, new URL(manifestUrl, document.baseURI)).href }, m.app.file), " (to 0x90040000).") : null;
+      boardIds(m).map((id, i) => [i ? ", " : "", h("a", { href: new URL(m.boards[id].app.file, new URL(manifestUrl, document.baseURI)).href }, m.boards[id].app.file), ` (${m.boards[id].label}, to 0x90040000)`]),
+      ".") : null;
     return h("div", { class: "fl-stack" },
       h("div", { class: "fl-panel is-warn" }, h("p", { class: "fl-eyebrow" }, "Browser not supported"),
         h("h2", null, "This browser cannot talk to USB devices."),
@@ -327,7 +363,7 @@ export function mountFlasher(root, options = {}) {
             "# 1. First install only: pedal in ROM DFU mode (FS1+FS2 for 2 s, or BOOT+RESET)",
             `dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D ${m?.bootloader.file || "dsy_bootloader_v6_2-intdfu-2000ms.bin"}`,
             "# 2. Pedal in the Daisy bootloader (appears after step 1, or FS1+FS2 on our firmware)",
-            `dfu-util -a 0 -d 0483:df11 -s 0x90040000:leave -D ${m?.app.file || "bass_multiband.bin"}`,
+            `dfu-util -a 0 -d 0483:df11 -s 0x90040000:leave -D ${m?.boards[pickBoard(m, S.board)].app.file || "bandwerk-hothouse.bin"}  # pick the file for your board`,
           ].join("\n")),
           files)),
       platformNotes(false),
@@ -338,10 +374,23 @@ export function mountFlasher(root, options = {}) {
     return h("div", { class: `fl-card ${cls}` }, h("span", { class: "fl-eyebrow" }, num), h("h3", null, title), h("p", null, text), btn);
   }
 
+  function boardPicker() {
+    const m = S.manifest;
+    if (!m) return null;
+    const cur = m.boards[S.board];
+    return h("fieldset", { class: "fl-board" },
+      h("legend", { class: "fl-eyebrow" }, "Your pedal"),
+      boardIds(m).map((id) => h("label", { class: "fl-radio" },
+        h("input", { type: "radio", name: "fl-board", value: id, checked: id === S.board, disabled: S.boardLoading, onchange: () => selectBoard(id) }),
+        " ", m.boards[id].label)),
+      cur && cur.tested === false ? h("p", { class: "fl-notice is-warn", role: "note" }, "Supported, not yet tested on FunBox hardware — please report how it works.") : null);
+  }
+
   function screenHome() {
     const customInput = h("input", { type: "file", accept: ".bin", class: "fl-file", onchange: (e) => chooseCustomFile(e.target.files[0]) });
     const c = S.custom;
     return h("div", { class: "fl-stack" },
+      boardPicker(),
       fwInfo(),
       h("div", { class: "fl-cols" },
         card("is-primary", "A", "Update", "Your pedal already runs Hothouse Bass Multiband. Installs this version. Your saved settings stay.",

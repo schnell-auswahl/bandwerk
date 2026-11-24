@@ -71,7 +71,7 @@ TEST(the_c_abi_matches_the_class) {
   CHECK(vp_init(48000) == 0);
   std::strcpy(vp_text_ptr(), "hello");
   CHECK(vp_command() == 1);
-  CHECK(std::string(vp_reply_ptr()) == "ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm");
+  CHECK(std::string(vp_reply_ptr()) == "ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual");
   std::strcpy(vp_text_ptr(), "dfu");
   CHECK(vp_command() == 0);
   CHECK(std::string(vp_reply_ptr()) == "err not available in the virtual pedal");

@@ -39,7 +39,15 @@ export function validateManifest(m) {
   if (!m || typeof m !== "object") throw new FirmwareError("Manifest is not a JSON object.", "manifest");
   if (typeof m.version !== "string" || !m.version) throw new FirmwareError("Manifest: version is missing.", "manifest");
   if (typeof m.commit !== "string") throw new FirmwareError("Manifest: commit is missing.", "manifest");
-  checkEntry(m.app, "app", APP_MAX_BYTES, APP_ADDR);
+  if (!m.boards || typeof m.boards !== "object" || Array.isArray(m.boards) || Object.keys(m.boards).length === 0) {
+    throw new FirmwareError("Manifest: \"boards\" is missing.", "manifest");
+  }
+  for (const [id, b] of Object.entries(m.boards)) {
+    if (!/^[a-z0-9_-]+$/.test(id)) throw new FirmwareError(`Manifest: bad board id "${id}".`, "manifest");
+    if (!b || typeof b !== "object") throw new FirmwareError(`Manifest: board "${id}" is invalid.`, "manifest");
+    if (typeof b.label !== "string" || !b.label) throw new FirmwareError(`Manifest: "boards.${id}.label" is missing.`, "manifest");
+    checkEntry(b.app, `boards.${id}.app`, APP_MAX_BYTES, APP_ADDR);
+  }
   checkEntry(m.bootloader, "bootloader", BOOTLOADER_MAX_BYTES, ROM_ADDR);
   return m;
 }
@@ -93,12 +101,24 @@ export async function fetchVerified(entry, base, { fetch = globalThis.fetch } = 
   return bytes;
 }
 
-/** Loads the manifest and both binaries, all verified. */
+/** The board ids of a manifest, in manifest order. */
+export const boardIds = (manifest) => Object.keys(manifest.boards);
+
+/** Picks `wanted` if the manifest has it, else "hothouse", else the first board. */
+export function pickBoard(manifest, wanted) {
+  const ids = boardIds(manifest);
+  return ids.includes(wanted) ? wanted : ids.includes("hothouse") ? "hothouse" : ids[0];
+}
+
+/** Loads the manifest and the program of one board plus the bootloader, all verified.
+ *  opts.board: board id (default "hothouse"). Returns { manifest, board, app, bootloader }. */
 export async function loadFirmware(manifestUrl, opts = {}) {
   const { manifest, base } = await loadManifest(manifestUrl, opts);
+  const board = opts.board === undefined ? pickBoard(manifest) : opts.board;
+  if (!manifest.boards[board]) throw new FirmwareError(`The firmware list has no build for the board "${board}".`, "board");
   const [app, bootloader] = await Promise.all([
-    fetchVerified(manifest.app, base, opts),
+    fetchVerified(manifest.boards[board].app, base, opts),
     fetchVerified(manifest.bootloader, base, opts),
   ]);
-  return { manifest, app, bootloader };
+  return { manifest, board, app, bootloader };
 }

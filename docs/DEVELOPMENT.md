@@ -48,7 +48,14 @@ HothouseExamples revision this firmware was developed against; it is a plain ups
 | `BM_REMOTE` | 1 | 1 |
 | `APP_TYPE` | `BOOT_SRAM` | `BOOT_SRAM` |
 | USB link | telemetry `[L] [M] [S] [SYS]`, all commands, plus the dev lines `[RAW] [UI] [DFU] [BOOT] [SAVE] [LOOP]` and the commands `reboot save wipe looptest` | telemetry `[L] [M] [S] [SYS]` and the shared commands (`ping hello set oct drv byp page dtype lmode band defaults dfu`) |
-| `hello` says | `build=dev app=boot_sram` | `build=release app=boot_sram` |
+| `hello` says | `build=dev app=boot_sram board=hothouse` | `build=release app=boot_sram board=hothouse` |
+
+**Boards.** `BOARD=hothouse` (default) uses `lib/HothouseExamples/src/hothouse.cpp`; `make BOARD=funbox` (also
+`make release BOARD=funbox`) builds `firmware/board/funbox.{h,cpp}` for the GuitarML FunBox v1-v3 and defines
+`BM_BOARD_FUNBOX=1`. The FunBox toggles sit on D14/D13 (S1 left/right), D7/D10 (S2) and D2/D4 (S3); left counts as
+"up", right as "down". Knobs, footswitches and LEDs use the same pins as the Hothouse. DIP switches (D1 D3 D5 D6),
+MIDI in (D30) and expression (D15) are unused. `make clean` when you switch boards; `hello` reports `board=funbox`.
+`tools/site_firmware.sh --build` builds both boards for the site (`bandwerk-hothouse.bin`, `bandwerk-funbox.bin`).
 
 Build switches (Makefile; **always `make clean` when you change one**, `make release` does it for you):
 

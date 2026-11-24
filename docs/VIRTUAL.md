@@ -44,7 +44,7 @@ the hardware provides. Files:
 
 Differences you can see:
 
-- `hello` answers `ok hello fw=<version> proto=1 build=virtual app=wasm`.
+- `hello` answers `ok hello fw=<version> proto=1 build=virtual app=wasm board=virtual`.
 - `dfu`, `reboot`, `save`, `wipe` and `looptest` answer `err not available in the virtual pedal`. The FS1 + FS2 bootloader gesture does nothing; the FS1 + FS2 bypass gesture works.
 - `[SYS] cpu` is `0.0 %` unless the host reports a load (`setCpuLoad`); `loops` is the number of 1 ms passes (1000 per second).
 - The loop measurement's cross-correlation runs in slices of 16 lags per pass (about 64 ms in total, the firmware blocks its main loop for a few ms instead) so that it never stalls an audio callback. The result is bit-identical to `LoopProbe::Analyze()` (tested). While it runs, the chain plays the high band dry, as on the pedal.

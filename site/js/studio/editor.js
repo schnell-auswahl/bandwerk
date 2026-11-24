@@ -3,7 +3,7 @@
 // graph and where each value lives on the pedal.
 
 import { PARAM_LABELS, paramFmt, paramHomeText, permille, LOOPS, DRIVE_NAMES, BANDS, PAGES } from './mapping.js';
-import { DEF, INFO, STATE_TEXT, loopDelay } from './chain.js';
+import { DEF, infoText, STATE_TEXT, loopDelay } from './chain.js';
 import { chainState } from './state.js';
 import { drawMini } from './graphs.js';
 import { esc, fitCanvas } from './dom.js';
@@ -161,7 +161,7 @@ export class Editor {
     });
     const info = this.el.querySelector('[data-info]');
     const block = DEF[this.sel];
-    info.textContent = (GROUP_OF[this.sel] === 'loop' || GROUP_OF[this.sel] === 'oct' || GROUP_OF[this.sel] === 'level' ? block.t + ': ' : '') + INFO[this.sel] + ' Now ' + STATE_TEXT[cs] + '.';
+    info.textContent = (GROUP_OF[this.sel] === 'loop' || GROUP_OF[this.sel] === 'oct' || GROUP_OF[this.sel] === 'level' ? block.t + ': ' : '') + infoText(this.sel) + ' Now ' + STATE_TEXT[cs] + '.';
     const note = this.el.querySelector('[data-note]');
     let t = '';
     if (this.group === 'loop') {

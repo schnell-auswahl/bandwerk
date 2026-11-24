@@ -74,11 +74,11 @@ export function parseLine(line) {
   return null;
 }
 
-// "ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram" -> {fw, proto, build, app}
+// "ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram" -> {fw, proto, build, app, board}  (board: null for firmware without that field)
 export function parseHello(reply) {
   if (!/^ok hello\b/.test(reply || '')) return null;
   const f = fields(reply.slice(8));
-  return { fw: f.fw || '?', proto: f.proto !== undefined ? +f.proto : null, build: f.build || '?', app: f.app || '?' };
+  return { fw: f.fw || '?', proto: f.proto !== undefined ? +f.proto : null, build: f.build || '?', app: f.app || '?', board: f.board || null };
 }
 
 // Splits a byte/text stream into lines (\r\n or \n), keeps the incomplete rest.
