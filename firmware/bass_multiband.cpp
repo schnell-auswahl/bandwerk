@@ -1,4 +1,4 @@
-// BassMultiband for Hothouse DIY DSP Platform
+// Bandwerk: multiband bass pedal firmware for Daisy Seed pedals (Hothouse, FunBox)
 // Copyright (C) 2026 schnell-auswahl
 //
 // This program is free software: you can redistribute it and/or modify

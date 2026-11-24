@@ -22,7 +22,7 @@ export const makePreset = (parts) => ({ format: PRESET_FORMAT, version: PRESET_V
 
 // Checks and normalizes a parsed preset. Throws an Error with a readable message.
 export function validatePreset(p) {
-  if (!p || typeof p !== 'object' || p.format !== PRESET_FORMAT) throw new Error('This is not a Hothouse Bass Multiband preset.');
+  if (!p || typeof p !== 'object' || p.format !== PRESET_FORMAT) throw new Error('This is not a Bandwerk preset.');
   if (p.version !== PRESET_VERSION) throw new Error('Unknown preset version ' + p.version + '.');
   if (!p.params || typeof p.params !== 'object') throw new Error('The preset has no parameters.');
   const params = {};

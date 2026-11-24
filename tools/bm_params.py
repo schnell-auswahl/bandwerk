@@ -1,4 +1,4 @@
-"""BassMultiband parameters in real units <-> the normalized 0..1 values the
+"""Bandwerk parameters in real units <-> the normalized 0..1 values the
 pedal stores. The index is the position in the
 firmware's parameter table (ParamName in ui/pages.h, telemetry field "pm")."""
 import math

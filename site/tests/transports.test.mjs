@@ -8,7 +8,7 @@ test('bridge: SSE messages, status, hello and POST /cmd', async () => {
   let es;
   class FakeES { constructor(url) { es = this; this.url = url; } close() { this.closed = true; } }
   const posts = [];
-  const fetchFn = async (url, opt) => { posts.push([url, opt.body]); return { json: async () => ({ ok: opt.body !== 'bad', reply: opt.body === 'hello' ? 'ok hello fw=0.1.0-beta proto=1 build=dev app=boot_sram' : opt.body === 'bad' ? 'err unknown command' : 'ok ' + opt.body }) }; };
+  const fetchFn = async (url, opt) => { posts.push([url, opt.body]); return { json: async () => ({ ok: opt.body !== 'bad', reply: opt.body === 'hello' ? 'ok hello fw=0.2.0-beta proto=1 build=dev app=boot_sram' : opt.body === 'bad' ? 'err unknown command' : 'ok ' + opt.body }) }; };
   const t = new BridgeTransport('http://127.0.0.1:8799/', { EventSourceImpl: FakeES, fetchFn });
   const msgs = [], status = [], hellos = [];
   t.addEventListener('message', (e) => msgs.push(e.detail));
@@ -21,7 +21,7 @@ test('bridge: SSE messages, status, hello and POST /cmd', async () => {
   es.onmessage({ data: JSON.stringify({ t: 'status', connected: true }) });
   await new Promise((r) => setImmediate(r));
   assert.equal(status.at(-1).pedal, true);
-  assert.equal(hellos[0].fw, '0.1.0-beta', 'asks the firmware version');
+  assert.equal(hellos[0].fw, '0.2.0-beta', 'asks the firmware version');
   es.onmessage({ data: JSON.stringify({ t: 'L', in: -20 }) });
   es.onmessage({ data: 'not json' });
   assert.deepEqual(msgs, [{ t: 'L', in: -20 }]);
@@ -95,7 +95,7 @@ function withSerial(fn) {
 
 test('serial: hello handshake, telemetry, commands, dfu', () => withSerial(async (listeners) => {
   const port = fakePort((line) => {
-    if (line === 'hello') return ['[S] pg=3 bd=1 lm=0 dt=1 oc=0 dr=0 by=0 ca=15 tp=0 pm=500,500,647,414,463,600,471,431,528,1000,500,1000,500,500,500,500,500,500,500,500,500,500\r\n[CMD] ok hel', 'lo fw=0.1.0-beta proto=1 build=release app=boot_sram\r\n'];
+    if (line === 'hello') return ['[S] pg=3 bd=1 lm=0 dt=1 oc=0 dr=0 by=0 ca=15 tp=0 pm=500,500,647,414,463,600,471,431,528,1000,500,1000,500,500,500,500,500,500,500,500,500,500\r\n[CMD] ok hel', 'lo fw=0.2.0-beta proto=1 build=release app=boot_sram\r\n'];
     if (line === 'dfu') return ['[CMD] ok dfu\r\n'];
     return ['[CMD] ok ' + line + '\r\n'];
   });
@@ -104,7 +104,7 @@ test('serial: hello handshake, telemetry, commands, dfu', () => withSerial(async
   t.addEventListener('message', (e) => msgs.push(e.detail));
   const hello = await t.connect(port);
   assert.deepEqual(port.opened, { baudRate: 115200 });
-  assert.deepEqual(hello, { fw: '0.1.0-beta', proto: 1, build: 'release', app: 'boot_sram', board: null });
+  assert.deepEqual(hello, { fw: '0.2.0-beta', proto: 1, build: 'release', app: 'boot_sram', board: null });
   assert.equal(msgs[0].t, 'S', 'telemetry before the reply is passed on');
   assert.deepEqual(await t.send('oct on'), { ok: true, reply: 'ok oct on' });
   const status = [];
@@ -127,7 +127,7 @@ test('serial: no answer to hello (other firmware) after one retry', () => withSe
 }));
 
 test('serial: retry succeeds when the first hello is lost', () => withSerial(async () => {
-  const port = fakePort((line, n) => (n === 1 ? [] : ['[CMD] ok hello fw=0.1.0-beta proto=1 build=dev app=boot_none\r\n']));
+  const port = fakePort((line, n) => (n === 1 ? [] : ['[CMD] ok hello fw=0.2.0-beta proto=1 build=dev app=boot_none\r\n']));
   const hello = await new SerialTransport().connect(port);
   assert.equal(hello.app, 'boot_none');
 }));

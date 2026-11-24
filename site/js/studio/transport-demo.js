@@ -12,7 +12,7 @@ import {
 } from './mapping.js';
 import { parseLine, parseHello } from './protocol.js';
 
-export const DEMO_FW = '0.1.0-beta';
+export const DEMO_FW = '0.2.0-beta';
 const SILENT = -120;
 const TOL = 0.02;            // SoftTakeover::kTolerance
 const SETTLE_MS = 300;       // ToggleSettle settle_ms

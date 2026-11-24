@@ -3,5 +3,5 @@
 // Keep the format of the two lines below: CI reads BM_FW_VERSION with sed.
 #pragma once
 
-#define BM_FW_VERSION "0.1.0-beta"
+#define BM_FW_VERSION "0.2.0-beta"
 #define BM_PROTO_VERSION 1

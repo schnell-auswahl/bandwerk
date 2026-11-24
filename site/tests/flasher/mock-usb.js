@@ -360,7 +360,7 @@ export class MockSerial {
         while ((i = buf.indexOf("\r\n")) >= 0) {
           const cmd = buf.slice(0, i); buf = buf.slice(i + 2);
           const say = (l) => ctl.enqueue(enc.encode(l + "\r\n"));
-          if (cmd === "hello") say("[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram");
+          if (cmd === "hello") say("[CMD] ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram");
           if (cmd === "dfu") { say("[CMD] ok dfu"); setTimeout(() => pedal.enter("daisy-inf"), restartMs); }
         }
       },

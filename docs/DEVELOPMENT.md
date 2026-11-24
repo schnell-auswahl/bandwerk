@@ -1,4 +1,4 @@
-# Development guide
+# Bandwerk development guide
 
 This document covers building, flashing, testing and the development tooling (devkit, bridge, live view,
 measurement rig). For a short overview see the [README](../README.md); the USB serial protocol is in
@@ -27,8 +27,8 @@ measurement rig). For a short overview see the [README](../README.md); the USB s
 ## Getting the sources and building the libraries
 
 ```sh
-git clone --recursive https://github.com/schnell-auswahl/hothouse-bass-multiband.git
-cd hothouse-bass-multiband
+git clone --recursive https://github.com/schnell-auswahl/bandwerk.git
+cd bandwerk
 # if you cloned without --recursive:
 git submodule update --init --recursive
 
@@ -202,7 +202,7 @@ line out (`[CMD] ok ...` or `[CMD] err ...`); exact replies and errors: [PROTOCO
 | Command | Effect |
 |---|---|
 | `ping` | check the link |
-| `hello` | firmware version, protocol version, build, layout: `ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram` |
+| `hello` | firmware version, protocol version, build, layout: `ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram` |
 | `set <name\|index> <permille>` | stored parameter, 0..1000 |
 | `oct on\|off`, `drv on\|off`, `byp on\|off` | octaver, drive, bypass (the page does not change) |
 | `page comp\|loop\|oct\|drive` | open a page |

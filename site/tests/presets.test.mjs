@@ -23,7 +23,7 @@ test('round trip through JSON and the share link', () => {
 
 test('validation', () => {
   assert.throws(() => presetFromJson('{'), /not valid JSON/);
-  assert.throws(() => validatePreset({ format: 'x' }), /not a Hothouse/);
+  assert.throws(() => validatePreset({ format: 'x' }), /not a Bandwerk/);
   assert.throws(() => validatePreset({ format: 'hothouse-bass-multiband-preset', version: 9, params: {} }), /version/);
   assert.throws(() => validatePreset({ format: 'hothouse-bass-multiband-preset', version: 1, params: { master: 1001 } }), /master/);
   const p = validatePreset({ format: 'hothouse-bass-multiband-preset', version: 1, params: { master: 400, bogus: 3 }, loopMode: 'nope' });

@@ -1,4 +1,4 @@
-# devkit: development tools for Daisy / Hothouse projects
+# devkit: development tools for Daisy / Hothouse projects (used by Bandwerk)
 
 Everything here is independent of one specific effect. It was built for
 this project's firmware (`firmware/`) and tools (`tools/`), which are the worked example of how a

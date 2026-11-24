@@ -1,4 +1,4 @@
-// Hothouse Bass Multiband studio: the live signal chain, the block editor and the Advanced area.
+// Bandwerk studio: the live signal chain, the block editor and the Advanced area.
 // Entry point: mountStudio(root, session, options) (see docs/STUDIO.md). The pedal itself and the
 // knob-page panel are separate components (js/pedal/); everything shares the one `session`
 // (js/core/session.js), which owns the transports, the store and the commands.
@@ -136,7 +136,7 @@ class Studio extends EventTarget {
     this.dispatchEvent(new CustomEvent('connection', { detail: { kind, hello: this.hello } }));
   }
   onNotice({ text, level, code }) {
-    if (code === 'no-hello') this.msg(esc(text) + ' <a href="#install">Install Hothouse Bass Multiband →</a>', level);
+    if (code === 'no-hello') this.msg(esc(text) + ' <a href="#install">Install Bandwerk →</a>', level);
     else this.msg(esc(text), text ? level : '');
   }
 
@@ -250,10 +250,10 @@ class Studio extends EventTarget {
   bindPresets() {
     const pmsg = (t) => { this.$('[data-pmsg]').textContent = t; };
     this.$('[data-pexport]').addEventListener('click', () => {
-      const p = presetFromState(this.view(), 'Hothouse preset');
+      const p = presetFromState(this.view(), 'Bandwerk preset');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([presetToJson(p)], { type: 'application/json' }));
-      a.download = 'hothouse-bass-preset.json';
+      a.download = 'bandwerk-preset.json';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       pmsg('Preset saved as a file.');

@@ -46,8 +46,8 @@ def pedal():
          '.k{font-size:15px;font-weight:800}.l{font-size:12px;fill:' + T['mute'] + ';letter-spacing:.06em}'
          '.h{font-size:13px;fill:' + T['paper'] + ';letter-spacing:.14em}</style>',
          f'<rect x="6" y="6" width="{W - 12}" height="{H - 12}" rx="28" fill="{T["ink3"]}" stroke="{T["line_strong"]}" stroke-width="3"/>',
-         f'<text x="40" y="52" class="h">HOTHOUSE</text>',
-         f'<text x="40" y="70" class="l">BASS MULTIBAND</text>',
+         f'<text x="40" y="52" class="h">BANDWERK</text>',
+         f'<text x="40" y="70" class="l">MULTIBAND BASS</text>',
          f'<rect x="282" y="34" width="118" height="30" fill="{T["drive"]}"/>',
          f'<text x="341" y="54" text-anchor="middle" class="k" fill="{T["ink"]}">PAGE DRIVE</text>']
     cols = (100, 220, 340)

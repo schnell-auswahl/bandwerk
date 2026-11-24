@@ -22,7 +22,7 @@ function clockedDemo() {
 
 // A scripted transport: records what is sent, answers when the test says so.
 class FakeTransport extends EventTarget {
-  constructor(kind, { hello = { fw: '0.1.0-beta', proto: 1, build: 'test', app: 'none' }, auto = true } = {}) {
+  constructor(kind, { hello = { fw: '0.2.0-beta', proto: 1, build: 'test', app: 'none' }, auto = true } = {}) {
     super();
     this.kind = kind; this.sent = []; this.helloInfo = hello; this.auto = auto; this.waiting = [];
     this.pedal = true; this.open = true; this.hello = null; this.disconnected = false;
@@ -122,7 +122,7 @@ test('snapshot / restore / applyPreset', async () => {
   assert.equal(s.store.S.oct, 1); assert.equal(s.store.S.loop, 2);
   assert.equal(s.store.S.pm[21], 0.9, 'untouched');
   assert.equal(s.store.S.drv, 1, 'untouched');
-  await assert.rejects(s.applyPreset({ format: 'x' }), /not a Hothouse/);
+  await assert.rejects(s.applyPreset({ format: 'x' }), /not a Bandwerk/);
   await assert.rejects(s.applyPreset(makePreset({ params: { dv_gain: 5000 } })), /Bad value/);
 });
 
@@ -141,7 +141,7 @@ test('transport switching: virtual -> USB (control only after hello) -> lost -> 
     assert.equal(await s.connectSerial({}), true);
     assert.equal(s.kind, 'serial'); assert.equal(s.connected, true); assert.equal(s.control, true);
     assert.equal(s.hardware, null, 'no virtual hardware with a real pedal'); assert.equal(s.audio, null);
-    assert.equal(s.hello.fw, '0.1.0-beta');
+    assert.equal(s.hello.fw, '0.2.0-beta');
     await s.setParam('master', 700);
     assert.deepEqual(usb.sent, ['set 0 700']);
     assert.equal(await s.enterBootloader(), true);

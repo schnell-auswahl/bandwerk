@@ -215,7 +215,7 @@ async function mountAll() {
         label: "Installer",
         title: "Installer loads here",
         text: "This copy of the page doesn’t include the installer module. You can flash the files from the GitHub releases with the Electro-Smith Daisy Web Programmer instead.",
-        link: { href: "https://github.com/schnell-auswahl/hothouse-bass-multiband/releases", text: "GitHub releases" },
+        link: { href: "https://github.com/schnell-auswahl/bandwerk/releases", text: "GitHub releases" },
       });
     }
   }

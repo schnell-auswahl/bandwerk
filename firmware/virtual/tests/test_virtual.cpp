@@ -6,8 +6,8 @@ using namespace vt;
 
 TEST(hello_identifies_the_virtual_pedal) {
   Rig r;
-  CHECK(r.Cmd("hello") == "ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual");
-  CHECK(r.Cmd("hello from-the-web 1.2") == "ok hello fw=0.1.0-beta proto=1 build=virtual app=wasm board=virtual");
+  CHECK(r.Cmd("hello") == "ok hello fw=0.2.0-beta proto=1 build=virtual app=wasm board=virtual");
+  CHECK(r.Cmd("hello from-the-web 1.2") == "ok hello fw=0.2.0-beta proto=1 build=virtual app=wasm board=virtual");
   CHECK(r.Cmd("ping") == "ok ping");
 }
 

@@ -1,4 +1,4 @@
-"""Telemetry of the BassMultiband firmware (dev and release builds, serial protocol
+"""Telemetry of the Bandwerk firmware (dev and release builds, serial protocol
 v1): turns one serial log line into a message for the browser live view.
 Format = firmware (ui/telemetry.h:
 [L], [M], [S], [SYS]) and docs/PROTOCOL.md; keep all three in sync.

@@ -33,15 +33,15 @@ function fakePort(handler, { openFails = false } = {}) {
 const serialOf = (port, filters) => ({ requestPort: async (o) => { serialOf.last = o; return port; } });
 
 test("parses the hello reply", () => {
-  assert.deepEqual(parseHello("[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram"),
-    { fw: "0.1.0-beta", proto: "1", build: "release", app: "boot_sram" });
+  assert.deepEqual(parseHello("[CMD] ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram"),
+    { fw: "0.2.0-beta", proto: "1", build: "release", app: "boot_sram" });
   assert.equal(parseHello("[CMD] ok hello fw=0.2.0 proto=1 build=release app=boot_sram board=funbox").board, "funbox");
   assert.equal(parseHello("[CMD] err nope"), null);
 });
 
 test("sends hello then dfu and waits for [CMD] ok dfu, skipping telemetry", async () => {
   const port = fakePort((cmd) => {
-    if (cmd === "hello") return ["[L] 1 2 3", "[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram"];
+    if (cmd === "hello") return ["[L] 1 2 3", "[CMD] ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram"];
     if (cmd === "dfu") return ["[S] x", "[CMD] ok dfu"];
   });
   const r = await requestDfuOverSerial(serialOf(port));

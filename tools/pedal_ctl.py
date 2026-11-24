@@ -51,7 +51,7 @@ class Pedal:
         return self.ctl.send("ping")
 
     def hello(self):
-        """{"fw": "0.1.0-beta", "proto": 1, "build": "release", "app": "boot_sram"}"""
+        """{"fw": "0.2.0-beta", "proto": 1, "build": "release", "app": "boot_sram"}"""
         reply = self.ctl.send("hello")
         info = parse_hello(reply)
         if info is None:

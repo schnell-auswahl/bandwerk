@@ -1,4 +1,4 @@
-# Installing Hothouse Bass Multiband
+# Installing Bandwerk
 
 You can install and update the firmware from the project website, directly from the browser. No software,
 no toolchain. This page explains the web installer, what to do when something does not work, and how to do the same
@@ -25,7 +25,7 @@ started by the **Daisy bootloader**:
 | What | Where | Written through |
 |---|---|---|
 | Daisy bootloader (`dsy_bootloader_v6_2-intdfu-2000ms.bin`, libDaisy, MIT) | internal flash, `0x08000000` | the STM32's built-in ROM bootloader |
-| Hothouse Bass Multiband (`bass_multiband.bin`) | QSPI flash, `0x90040000` | the Daisy bootloader |
+| Bandwerk (`bandwerk-<board>-<version>.bin`) | QSPI flash, `0x90040000` | the Daisy bootloader |
 | Your saved settings | QSPI flash, start of the chip | written by the firmware, **never touched by the installer** |
 
 The Daisy bootloader waits **2 seconds** after every power-up, then starts the program. A new pedal with no program
@@ -36,7 +36,7 @@ the ROM bootloader reports the internal flash at `0x08000000` (name "STM32 BOOTL
 the Daisy bootloader reports the QSPI flash at `0x90000000` (name "Daisy Bootloader"). It refuses to write anything to a device
 that is not the right one for the step it is doing.
 
-## Update (the pedal already runs Bass Multiband)
+## Update (the pedal already runs Bandwerk)
 
 1. Open the installer and click **Update my pedal**.
 2. Click **Restart pedal into update mode** and pick the pedal's serial port (close the Studio tab first, only one page can use
@@ -111,7 +111,7 @@ Nothing to install. On Android use a USB OTG cable.
 ## Without the web installer: dfu-util
 
 Install [dfu-util](https://dfu-util.sourceforge.net/) (macOS: `brew install dfu-util`). Download both files from the
-[release page](https://github.com/schnell-auswahl/hothouse-bass-multiband/releases) (or from `site/firmware/` after a local build), and check them
+[release page](https://github.com/schnell-auswahl/bandwerk/releases) (or from `site/firmware/` after a local build), and check them
 against the `.sha256` files.
 
 ```sh
@@ -138,7 +138,7 @@ The built-in ROM bootloader of the STM32 cannot be overwritten by anything the i
 | The program is installed but behaves badly | Hold FS1 + FS2 for 2 seconds while it runs (if it still reacts), or power-cycle and click **Select pedal** within 2 seconds. |
 | The pedal does not show up in the browser dialog | Another cable or USB port; close other programs using the pedal (Studio tab, serial monitors); Windows: Zadig; Linux: udev rule. |
 | Everything is confusing | Unplug, hold BOOT, tap RESET (Daisy Seed), start **First install**. This always works. |
-| You want a different firmware back | Put the pedal into the ROM bootloader and write that firmware's `.bin` (built for the internal flash) with `dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D other.bin`. This replaces the Daisy bootloader; run **First install** later to get Bass Multiband back. |
+| You want a different firmware back | Put the pedal into the ROM bootloader and write that firmware's `.bin` (built for the internal flash) with `dfu-util -a 0 -d 0483:df11 -s 0x08000000:leave -D other.bin`. This replaces the Daisy bootloader; run **First install** later to get Bandwerk back. |
 
 ## Notes on what is verified
 

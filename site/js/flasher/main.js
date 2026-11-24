@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Web installer wizard for Hothouse Bass Multiband.
+// Web installer wizard for Bandwerk.
 //   mountFlasher(root, { manifestUrl, enterBootloader, onFlashed }) -> Flasher
 // See docs/INSTALL.md. No external requests: only same-origin firmware files are fetched.
 
@@ -8,7 +8,7 @@ import { checkAppBinary } from "./checks.js";
 import { DFU_FILTERS, KIND_LABEL, openSession, planFor, runInstall, waitForDfuDevice } from "./installer.js";
 import { requestDfuOverSerial } from "./serial.js";
 
-const DOCS_URL = "https://github.com/schnell-auswahl/hothouse-bass-multiband/blob/main/docs/INSTALL.md";
+const DOCS_URL = "https://github.com/schnell-auswahl/bandwerk/blob/main/docs/INSTALL.md";
 const WEB_PROGRAMMER_URL = "https://flash.daisy.audio/";
 
 // ---- tiny DOM helper ---------------------------------------------------------------------
@@ -380,6 +380,7 @@ export function mountFlasher(root, options = {}) {
     const cur = m.boards[S.board];
     return h("fieldset", { class: "fl-board" },
       h("legend", { class: "fl-eyebrow" }, "Your pedal"),
+      h("p", { class: "fl-hint" }, "Bandwerk runs on the Cleveland Music Co. Hothouse (tested) and the GuitarML FunBox v1\u2013v3 (supported). Pick the one you have."),
       boardIds(m).map((id) => h("label", { class: "fl-radio" },
         h("input", { type: "radio", name: "fl-board", value: id, checked: id === S.board, disabled: S.boardLoading, onchange: () => selectBoard(id) }),
         " ", m.boards[id].label)),
@@ -393,7 +394,7 @@ export function mountFlasher(root, options = {}) {
       boardPicker(),
       fwInfo(),
       h("div", { class: "fl-cols" },
-        card("is-primary", "A", "Update", "Your pedal already runs Hothouse Bass Multiband. Installs this version. Your saved settings stay.",
+        card("is-primary", "A", "Update", "Your pedal already runs Bandwerk. Installs this version. Your saved settings stay.",
           h("button", { class: "fl-btn is-solid", onclick: () => startPrepare("update") }, "Update my pedal")),
         card("", "B", "First install", "New pedal, or it runs other firmware. Installs the Daisy bootloader and then the program. Replaces the firmware that is on the pedal now.",
           h("button", { class: "fl-btn", onclick: () => startPrepare("first") }, "Install on a new pedal"))),
@@ -542,7 +543,7 @@ export function mountFlasher(root, options = {}) {
     const text = r.kind === "bootloader"
       ? "The Daisy bootloader was reinstalled. The pedal restarted. Your program in the QSPI flash is untouched."
       : r.custom ? "Your program was written and started."
-        : `Hothouse Bass Multiband ${m ? "v" + m.version : ""} is installed and the pedal has restarted.`;
+        : `Bandwerk ${m ? "v" + m.version : ""} is installed and the pedal has restarted.`;
     return h("div", { class: "fl-stack" },
       h("div", { class: "fl-panel is-solid" }, h("p", { class: "fl-eyebrow" }, "Done"),
         h("div", { class: "fl-big" }, "✓"),

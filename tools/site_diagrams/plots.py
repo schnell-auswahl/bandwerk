@@ -1,4 +1,4 @@
-"""Diagram generator for the Hothouse Bass Multiband landing page.
+"""Diagram generator for the Bandwerk landing page.
 
 Every curve is computed from the formulas in firmware/dsp (mapping.h, compressor.h,
 drive.h, octaver.h, soft_clip.h, crossover_lr4.h): RBJ biquads at 48 kHz, the

@@ -95,7 +95,7 @@ test("refuses a manifest or file URL on another origin", async () => {
 
 test("accepts the contract example manifest shape (hex strings)", () => {
   const m = {
-    name: "Hothouse Bass Multiband", version: "0.1.0-beta", commit: "abc",
+    name: "Bandwerk", version: "0.2.0-beta", commit: "abc",
     boards: { hothouse: { label: "Hothouse", app: { file: "bandwerk-hothouse.bin", size: 140000, sha256: "a".repeat(64), address: "0x90040000", type: "boot_sram" } } },
     bootloader: { file: "dsy_bootloader_v6_2-intdfu-2000ms.bin", size: 126548, sha256: "b".repeat(64), address: "0x08000000", version: "6.2", license: "MIT (libDaisy)" },
   };

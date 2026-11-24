@@ -12,7 +12,7 @@ const state = (p) => parseLine(p.stateLine());
 test('commands and replies', () => {
   const p = new DemoPedal(0);
   assert.equal(p.command('ping'), 'ok ping');
-  assert.deepEqual(parseHello(p.command('hello')), { fw: '0.1.0-beta', proto: 1, build: 'demo', app: 'none', board: null });
+  assert.deepEqual(parseHello(p.command('hello')), { fw: '0.2.0-beta', proto: 1, build: 'demo', app: 'none', board: null });
   assert.equal(p.command('set ch_thr 600'), 'ok set ch_thr 600');
   assert.equal(p.command('set 7 1000'), 'ok set cl_ratio 1000');
   assert.equal(p.command('set 7 1001'), 'err value must be 0..1000');
@@ -123,7 +123,7 @@ test('transport: same interface as the real ones', async () => {
   t.addEventListener('message', (e) => msgs.push(e.detail));
   t.addEventListener('status', (e) => status.push(e.detail));
   const hello = await t.connect();
-  assert.equal(hello.fw, '0.1.0-beta');
+  assert.equal(hello.fw, '0.2.0-beta');
   assert.ok(status[0].connected && status[0].pedal);
   now = 60; ticker();
   assert.ok(msgs.some((m) => m.t === 'L') && msgs.some((m) => m.t === 'S'));

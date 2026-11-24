@@ -94,6 +94,7 @@
 .flasher .fl-notice { font-family: var(--mono); font-size: var(--fs-small); padding: var(--sp-3) var(--sp-4); background: var(--ink-3); border-left: 6px solid var(--fx-io); }
 .flasher .fl-notice.is-ok { border-left-color: var(--ok); }
 .flasher .fl-notice.is-warn { border-left-color: var(--warn); }
+.flasher .fl-hint { margin: 0 0 var(--sp-3); color: var(--mute); font-size: var(--fs-small); max-width: 60ch; }
 .flasher .fl-notice.is-err { border-left-color: var(--err); }
 .flasher .fl-warn { font-family: var(--mono); font-weight: 800; font-size: var(--fs-small); text-transform: uppercase; letter-spacing: 0.06em; border-top: 3px solid var(--ink); padding-top: var(--sp-3); }
 

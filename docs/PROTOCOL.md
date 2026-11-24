@@ -244,7 +244,7 @@ Notes:
 Send `hello` right after opening the port. The reply identifies the firmware:
 
 ```
-[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram board=hothouse
+[CMD] ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram board=hothouse
 ```
 
 - `fw`: firmware version (semver, from `firmware/version.h`).

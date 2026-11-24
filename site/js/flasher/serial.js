@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Restart a running pedal into update mode over Web Serial (serial protocol v1, see docs/PROTOCOL.md):
-//   host: "hello\r\n"  pedal: "[CMD] ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram"
+//   host: "hello\r\n"  pedal: "[CMD] ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram"
 //   host: "dfu\r\n"    pedal: "[CMD] ok dfu"   (then the pedal restarts into its bootloader)
 
 export class SerialError extends Error {

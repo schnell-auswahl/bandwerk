@@ -1,9 +1,22 @@
-# Hothouse Bass Multiband
+# Bandwerk
 
-A multiband bass multi-effect for the [Cleveland Music Co. Hothouse](https://clevelandmusicco.com/hothouse-diy-digital-signal-processing-platform-kit/)
-DIY DSP pedal platform (Electro-Smith Daisy Seed, STM32H750).
+Multiband bass pedal firmware for Daisy Seed pedals. Runs on the [Cleveland Music Co. Hothouse](https://clevelandmusicco.com/hothouse-diy-digital-signal-processing-platform-kit/)
+and the [GuitarML FunBox](https://guitarml.com/) (Electro-Smith Daisy Seed, STM32H750).
+Website, in-browser demo and installer: <https://schnell-auswahl.github.io/bandwerk/>
 
-> Status: **v0.1 beta**. The FX loop has not yet been verified on hardware, and the drive voicing is provisional.
+## Hardware
+
+| Pedal | Status |
+| --- | --- |
+| Cleveland Music Co. Hothouse | tested |
+| GuitarML FunBox v1-v3 | supported, not yet tested on FunBox hardware (toggles left/middle/right = up/middle/down; reports welcome via GitHub issues) |
+
+Requirements: a Daisy Seed, USB reachable for the web features (installer, Studio), and a TRS insert cable for the FX loop.
+
+> Bandwerk is an independent open-source project, not affiliated with Cleveland Music Co. or GuitarML. Hothouse and
+> FunBox are their respective owners' names.
+
+> Status: **v0.2 beta**. The FX loop has not yet been verified on hardware, and the drive voicing is provisional.
 
 ## What it does
 
@@ -48,11 +61,11 @@ DIY DSP pedal platform (Electro-Smith Daisy Seed, STM32H750).
 You need the Arm GNU Toolchain 13.3.rel1 (`arm-none-eabi-gcc`), `make`, `git` and `dfu-util`.
 
 ```sh
-git clone --recursive https://github.com/schnell-auswahl/hothouse-bass-multiband.git
-cd hothouse-bass-multiband
+git clone --recursive https://github.com/schnell-auswahl/bandwerk.git
+cd bandwerk
 make -C lib/HothouseExamples/libDaisy
 make -C lib/HothouseExamples/DaisySP
-make -C firmware release        # firmware/build/bass_multiband.bin
+make -C firmware release        # firmware/build/bass_multiband.bin (add BOARD=funbox for the FunBox)
 ```
 
 The firmware uses the Daisy bootloader layout (`BOOT_SRAM`): the

@@ -87,10 +87,10 @@ export function mountPedal(root, session, opts = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'pv-wrap';
   wrap.innerHTML = `
-<svg class="pv-svg" viewBox="0 0 ${VIEW.w} ${VIEW.h}" role="group" aria-label="Hothouse Bass Multiband pedal${page ? ', ' + page + ' page' : ''}">
+<svg class="pv-svg" viewBox="0 0 ${VIEW.w} ${VIEW.h}" role="group" aria-label="Bandwerk pedal${page ? ', ' + page + ' page' : ''}">
   <rect class="pv-body" x="6" y="6" width="${VIEW.w - 12}" height="${VIEW.h - 12}" rx="28"/>
-  <text class="pv-h" x="40" y="52">HOTHOUSE</text>
-  <text class="pv-l" x="40" y="70">BASS MULTIBAND</text>
+  <text class="pv-h" x="40" y="52">BANDWERK</text>
+  <text class="pv-l" x="40" y="70">MULTIBAND BASS</text>
   <rect class="pv-page" x="282" y="34" width="118" height="30"/>
   <text class="pv-k pv-page-t" x="341" y="54" text-anchor="middle"></text>
   ${[0, 1, 2, 3, 4, 5].map(knobSvg).join('')}

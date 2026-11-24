@@ -74,7 +74,7 @@ export function parseLine(line) {
   return null;
 }
 
-// "ok hello fw=0.1.0-beta proto=1 build=release app=boot_sram" -> {fw, proto, build, app, board}  (board: null for firmware without that field)
+// "ok hello fw=0.2.0-beta proto=1 build=release app=boot_sram" -> {fw, proto, build, app, board}  (board: null for firmware without that field)
 export function parseHello(reply) {
   if (!/^ok hello\b/.test(reply || '')) return null;
   const f = fields(reply.slice(8));
